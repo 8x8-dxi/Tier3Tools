@@ -1,0 +1,21 @@
+---
+openapi: 3.0.1
+info:
+  title: webpack-template
+  description: Change me to something sensible please!
+  x-cortex-git:
+    github:
+      repository: 8x8/webpack-template
+  x-cortex-tag: webpack-template
+  x-cortex-link:
+    - url: https://sonar.8x8.com/dashboard?id=com._8x8%3Awebpack-template
+      name: Sonar Project
+      type: DASHBOARD
+  x-cortex-owners:
+    - type: EMAIL
+      email: shrikant.piprode@8x8.com
+  x-cortex-service-groups:
+    - javascript
+  x-cortex-static-analysis:
+    sonarqube:
+      project: com._8x8:webpack-template
