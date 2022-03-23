@@ -1,18 +1,24 @@
 {
-  "name": "webpack-template",
+  "name": "Tier-3-Tools",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "General Tier 3 Tools",
+  "main": "Server.js",
   "scripts": {
     "start": "webpack serve --config webpack.dev.js --open",
     "build": "webpack --config webpack.prod.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Christian Augustine",
   "license": "ISC",
   "dependencies": {
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2"
+    "agenda": "^4.2.1",
+    "mongoose": "^5.10.13",
+    "nodemailer": "^6.7.3",
+    "pm2": "^5.2.0",
+    "redis": "^4.0.4",
+    "request": "^2.88.2",
+    "winston": "^3.6.0",
+    "winston-daily-rotate-file": "^4.6.1"
   },
   "devDependencies": {
     "@babel/core": "^7.14.8",
@@ -28,7 +34,7 @@
     "style-loader": "^3.2.1",
     "webpack": "^5.47.0",
     "webpack-cli": "^4.7.2",
-    "webpack-dev-server": "^3.11.2",
+    "webpack-dev-server": "^4.7.4",
     "webpack-merge": "^5.8.0"
   }
 }
