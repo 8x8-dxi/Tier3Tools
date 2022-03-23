@@ -95,7 +95,7 @@ class LNPJobs {
                 </style>
             </head>
                     
-            <body><h2>Failed Port details.</h2>
+            <body><h2>Failed Port details. Git Rep (https://github.com/8x8-dxi/Tier3Tools)</h2>
                     <table style='width:100%; text-align:left'>
               <tr>
                 <th>Customer ID</th>
@@ -305,7 +305,7 @@ class LNPJobs {
 
         this.GetFailedActivationJob(token, order, orderPayLoad, (err, key, payLoad, job) => {
             
-            if (!err && payLoad.job_status === 'FAILED')
+            if (!err && (payLoad.job_status === 'FAILED' || payLoad['failed_numbers']))
             {   
                 if (payLoad['failed_numbers'] && payLoad['failed_numbers'].length > 0)
                 {
@@ -326,10 +326,10 @@ class LNPJobs {
                 // send email
                 this.sendEmail({
                     from: 'noreply@8x8.com',
-                    to: "caugustine@8x8.com",
-                    //to: "caugustine@8x8.com, hugh.davie@8x8.com, Brian.Holt@8x8.com",
-                    subject: 'LNP Port Failure',
-                    text: "Details",
+                    to: "gas@8x8.com",
+                    //to: "caugustine@8x8.com, steve.ohara@8x8.com,liviu.munteanu@8x8.com,hector.mayorga@8x8.com,andrei.larionescu@8x8.com,neil.lavelle@8x8.com",
+                    subject: `LNP Port Failure: Customer ${payLoad.customer_name}`,
+                    text: "Some Details.",
                     html: this.makeTable(payLoad)
                 });
             } else {
@@ -343,7 +343,25 @@ class LNPJobs {
         });
     }
 
-
+    getJobHistory(cb){
+        let History ={};
+        let lastCreateDate = new Date(new Date().setDate(new Date().getDate() - 10));
+        LNPCollection.getFailedJobs({}, (err, res)=>{
+            if (!err && res && res.length > 0){
+                for (let x =0, l=res.length; x <l; ++x){
+                    if (x == 0) lastCreateDate = res[x].create_date
+                    if(!History[res[x].order_uuid]){
+                        History[res[x].order_uuid] ={
+                            port_uuid:res[x].port_uuid,
+                            job_status:res[x].job_status
+                        }
+                    }
+                }
+            }
+            return cb(this.currentDate(false,lastCreateDate), History)
+        })
+    }
+    
     GenerateToken (callback) {
         this.GetToken((error, response, body) => {
             if (error) {
@@ -359,7 +377,6 @@ class LNPJobs {
     GetPortinsByUUID(token, options, portin){
         let customerid = portin.customerId;
         let phonenumber = portin.phoneNumber;
-
         this.GetCustomer(token, customerid, (err, customerResponse) => {
 
             if (!err && customerResponse && customerResponse.content) {
@@ -389,8 +406,6 @@ class LNPJobs {
                 this.GET(options, (err, body) => {
                     if (!err) {
                         body.content.forEach((order) => {
-                            //console.info(order, payLoad);
-                            //self.RestartJob(token, order, payLoad);
                             this.NotifyByEmail(token, order, payLoad);
                         });
                     }
@@ -399,8 +414,7 @@ class LNPJobs {
         });
     }
 
-    doNext(token, query){
-        let SEEN = {}; //
+    doNext(token, query, History){
         return (error, body) => {
             if (error) {
                 throw new Error(error);
@@ -415,9 +429,7 @@ class LNPJobs {
                     const portin = content[i];
                     const orderID = portin.lastOrderUuid;
                     // Prevent processing multiple order as each DID in an order shares one orderId
-                    if (!SEEN[orderID]) {
-
-                        SEEN[orderID] = true;
+                    if (!History[orderID]) {
                         this.GetPortinsByUUID(token, query, portin);
                     }
                     // Skip
@@ -428,34 +440,36 @@ class LNPJobs {
         }
     }
 
-    CheckFailedPortin(date){
-
-        this.GetToken((error, response, body) => {
-            if (error) {
-                logger.error("Unable to get SMP token", error, body);
-                return;
-            }
-            const tokenObject = JSON.parse(body);
-            const token = tokenObject.access_token;
-
-            const options = {
-                method: 'GET',
-                url: `${APIHOST}/dms/v2/dids`,
-                headers: {
-                    Authorization: `Bearer  ${token}`,
-                    'Content-Type': 'application/x-www-form-urlencoded'
+    CheckFailedPortin(){
+        this.getJobHistory((lastCreateDate, history)=>{
+            logger.info(`Checking for failed LNP Port: Last Created Date ${lastCreateDate}`)
+            this.GetToken((error, response, body) => {
+                if (error) {
+                    logger.error("Unable to get SMP token", error, body);
+                    return;
                 }
-            };
-            const query = {
-                pageKey: '0',
-                limit: '200',
-                filter: `status==PORTED;lastUpdatedDateTime=ge=${date}T00:00:00`
-            };
-
-            options.qs = query;
-
-            this.GET(options, this.doNext(token, options));
-        });
+                const tokenObject = JSON.parse(body);
+                const token = tokenObject.access_token;
+    
+                const options = {
+                    method: 'GET',
+                    url: `${APIHOST}/dms/v2/dids`,
+                    headers: {
+                        Authorization: `Bearer  ${token}`,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                };
+                const query = {
+                    pageKey: '0',
+                    limit: '200',
+                    filter: `status==PORTED;lastUpdatedDateTime=ge=${lastCreateDate}T00:00:00`
+                };
+    
+                options.qs = query;
+    
+                this.GET(options, this.doNext(token, options, history));
+            });
+        })
     }
 }
 

@@ -30,7 +30,7 @@ const LNPSchema = new Schema(
         can_restart:Boolean
     },
     {
-        collection: 'LNPPortJobs'
+        collection: 'lnpportjobs'
     }
 )
-module.exports = exports = Mongoose.model('LNPPortJobs', LNPSchema);
+module.exports = exports = Mongoose.model('lnpportjobs', LNPSchema);

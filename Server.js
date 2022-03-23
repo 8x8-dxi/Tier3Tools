@@ -53,8 +53,8 @@ var agenda = new Agenda({db: {address: "mongodb://" + CONFIG.db_user + ':' + CON
 
 const redisClient = redis.createClient(CONFIG.redis_port, CONFIG.redis_host);
 
-var smtpConfig = CONFIG.mail_config;
-//var smtpConfig = {port: 25};
+//const smtpConfig = CONFIG.mail_config;
+const smtpConfig = {port: 25};
 
 const mailTransporter = mailerTransport.createTransport(smtpConfig);
 
@@ -63,17 +63,17 @@ const PortinController = require('./src/Controllers/FailedLNPJobs');
 const JobController = new PortinController(redisClient, mailTransporter, fs);
 
 
-//JobController.CheckFailedPortin('2022-02-11');
+//JobController.CheckFailedPortin();
 
-agenda.define('Scan SMP Failed Portins', (job, done) =>{
-   JobController.CheckFailedPortin();
+agenda.define('Check LPN Failures', (job, done) =>{
+    JobController.CheckFailedPortin();
    done();
 });
 
 agenda.on('ready', function () {
    logger.info('---starting Agenda Jobs---');
    agenda.start();
-   agenda.every('1 hour', 'Scan SMP Failed Portins');
+   agenda.every('10 minutes', 'Check LPN Failures');
 });
 
 

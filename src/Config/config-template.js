@@ -7,11 +7,11 @@ return {
         mongo_host: '@tc-lv-supportbitools-01.int.dxi.eu:27017/support',
         mongodb_host: "tc-lv-supportbitools-01.int.dxi.eu:27017",
         db_user: 'support_tool',
-        db_pass: 'PASS',
+        db_pass: '',
         db_options: {
             native_parser: true,
             user: 'support_tool',
-            pass: 'PASS',
+            pass: '',
             poolSize: 10,
             ssl: false,
             sslValidate: false,
