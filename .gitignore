@@ -6,6 +6,6 @@ node_modules/
 
 # Ignore all dist folder
 dist/
-src/Config/Config.js
+src/Config/config.js
 # Ignore files related to API keys
 .env

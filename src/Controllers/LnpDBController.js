@@ -11,9 +11,9 @@ Controller.getJobByOrderId = (order_uuid) =>{
     return LNPCollection.find({order_uuid:order_uuid}, cb)
 }
 
-Controller.getFailedJobs = (filter) =>{
+Controller.getFailedJobs = (filter, cb) =>{
     if(!filter) filter = {}
-    return LNPCollection.find(filter, cb)
+    return LNPCollection.find(filter).sort({create_date:-1}).exec(cb)
 }
 
 Controller.SaveFailedOrder = (order,cb) => {

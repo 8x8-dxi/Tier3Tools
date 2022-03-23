@@ -1,15 +1,15 @@
 # webpack-template
 ENV INFO: Node version:: v16.5.0 npm version:: 7.19.1
 
-POC for webpack bundle with dev and prod build setup
 
 Steps to run template:
 
-1# check out template by git clone.
+1# Copy Config/config-template.js to Config/config.js
 
-2# run "npm install" from parent directory, it will create node_module directory
+2# Assigne SMP toke to 'authKey'
 
-3# Now, to run webpack setup in dev ENV, use command "npm start", it will start on dev server ::
-Project is running at http://localhost:3010/
+3# Assigne the support tool Mongo password to 'db_pass' and 'pass'
 
-4# To build for production, use command "npm run build"
+4# run "npm install" from parent directory, it will create node_module directory
+
+5# run "pm2 start Server.js"
