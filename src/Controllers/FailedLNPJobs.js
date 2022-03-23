@@ -95,7 +95,7 @@ class LNPJobs {
                 </style>
             </head>
                     
-            <body><h2>Failed Port details.</h2>
+            <body><h2>Failed Port details. Git Rep (https://github.com/8x8-dxi/Tier3Tools)</h2>
                     <table style='width:100%; text-align:left'>
               <tr>
                 <th>Customer ID</th>
@@ -326,10 +326,10 @@ class LNPJobs {
                 // send email
                 this.sendEmail({
                     from: 'noreply@8x8.com',
-                    to: "caugustine@8x8.com",
-                    //to: "caugustine@8x8.com, hugh.davie@8x8.com, Brian.Holt@8x8.com",
-                    subject: 'LNP Port Failures',
-                    text: "Details",
+                    to: "gas@8x8.com",
+                    //to: "caugustine@8x8.com, steve.ohara@8x8.com,liviu.munteanu@8x8.com,hector.mayorga@8x8.com,andrei.larionescu@8x8.com,neil.lavelle@8x8.com",
+                    subject: `LNP Port Failure: Customer ${payLoad.customer_name}`,
+                    text: "Some Details.",
                     html: this.makeTable(payLoad)
                 });
             } else {
@@ -377,7 +377,6 @@ class LNPJobs {
     GetPortinsByUUID(token, options, portin){
         let customerid = portin.customerId;
         let phonenumber = portin.phoneNumber;
-
         this.GetCustomer(token, customerid, (err, customerResponse) => {
 
             if (!err && customerResponse && customerResponse.content) {
@@ -407,8 +406,6 @@ class LNPJobs {
                 this.GET(options, (err, body) => {
                     if (!err) {
                         body.content.forEach((order) => {
-                            //console.info(order, payLoad);
-                            //self.RestartJob(token, order, payLoad);
                             this.NotifyByEmail(token, order, payLoad);
                         });
                     }
