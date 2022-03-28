@@ -325,7 +325,7 @@ class LNPJobs {
 
                 // send email
                 this.sendEmail({
-                    from: 'noreply@8x8.com',
+                    from: 'christian.augustine@8x8.com',
                     to: "gas@8x8.com",
                     //to: "caugustine@8x8.com, steve.ohara@8x8.com,liviu.munteanu@8x8.com,hector.mayorga@8x8.com,andrei.larionescu@8x8.com,neil.lavelle@8x8.com",
                     subject: `LNP Port Failure: Customer ${payLoad.customer_name}`,
@@ -414,7 +414,7 @@ class LNPJobs {
         });
     }
 
-    doNext(token, query, History){
+    doNext(token, query, lastCreateDate, History){
         return (error, body) => {
             if (error) {
                 throw new Error(error);
@@ -433,6 +433,14 @@ class LNPJobs {
                         this.GetPortinsByUUID(token, query, portin);
                     }
                     // Skip
+                }
+
+                if (body.nextPageKey){
+                    query.qs = {
+                        limit: '200',
+                        filter: `status==PORTED;lastUpdatedDateTime=ge=${lastCreateDate}&pageKey=${body.nextPageKey}`
+                    }
+                    this.GET(query, this.doNext(token, query,lastCreateDate, History));
                 }
             } else {
                 logger.info("---------- It's good news! No stuck Portins!!! -----------");
@@ -467,7 +475,7 @@ class LNPJobs {
     
                 options.qs = query;
     
-                this.GET(options, this.doNext(token, options, history));
+                this.GET(options, this.doNext(token, options,lastCreateDate, history));
             });
         })
     }
