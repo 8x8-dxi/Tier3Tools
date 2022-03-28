@@ -95,7 +95,7 @@ class LNPJobs {
                 </style>
             </head>
                     
-            <body><h2>Failed Port details. Git Rep (https://github.com/8x8-dxi/Tier3Tools)</h2>
+            <body><h2>Failed Port details.</h2>
                     <table style='width:100%; text-align:left'>
               <tr>
                 <th>Customer ID</th>
@@ -139,7 +139,8 @@ class LNPJobs {
                     ${data.error} <br> ${data.errors_list.join('<br>')}
                 </td>
               </tr>
-            </table></body>`;
+            </table></body> 
+            <h3>This code can be found the Git Repo (https://github.com/8x8-dxi/Tier3Tools)</h3>`;
 
         return table;
     };
@@ -251,13 +252,7 @@ class LNPJobs {
             if ((job.errors && job.errors.length > 0) || job.status && job.status === 'FAILED')
             {
                 logger.info("-------JOB STATUS : %s", job.status);
-                if(!job.errors){
-                    logger.info('No Message! ', job.errors);
-                }else{
-                    if (job.errors.length > 0){
-                        logger.warn(`DPS LAST ERROR: ${JSON.stringify(job.errors.pop().message)}`);
-                    }
-                }
+
                 payLoad['job_status'] = job.status;
                 payLoad['error'] = job.errors && job.errors.length > 0 ? job.errors[0].message : "";
                 payLoad['failed_numbers'] = job.detailedStatus.failed && job.detailedStatus.failed.length ? job.detailedStatus.failed : [];
@@ -266,6 +261,14 @@ class LNPJobs {
                 payLoad['errors_list'] = [];
                 payLoad['job_errors'] = job.errors;
 
+                if(!job.errors){
+                    logger.info('No Message! ', job.errors);
+                }else{
+                    if (job.errors.length > 0 && payLoad['failed_numbers'].length){
+                        logger.warn(`DPS LAST ERROR: ${JSON.stringify(job.errors.pop().message)}`);
+                    }
+                }
+
                 // Some order status may not have failed but still has error
                 if (payLoad['failed_numbers'].length === 0 && (job.detailedStatus.pending && job.detailedStatus.pending.length > 0))
                 {
@@ -273,27 +276,33 @@ class LNPJobs {
                     logger.warn(`The order [${order.uuid}] status is in pending status which seem to have been stucked`);
                 }
 
-                const FailedPort = {
-                    customer_id:payLoad.customer_id,
-                    customer_name:payLoad.customer_name,
-                    job_status:payLoad.job_status,
-                    port_status:payLoad.status,
-                    port_uuid:payLoad.portin_uuid,
-                    order_uuid : order.uuid,
-                    order_bulk_id :order.bulkUuid,
-                    failed_numbers: JSON.stringify(payLoad.failed_numbers),
-                    completed_numbers: JSON.stringify(payLoad.completed_numbers),
-                    web_link:payLoad.order_url,
-                    create_date:this.currentDate(true, payLoad.create_date),
-                    last_update:this.currentDate(true, payLoad.last_update),
-                    error:JSON.stringify(payLoad.errors_list),
-                    restart_counter:0,
-                    done:false,
-                    can_restart:true
-                };
-                LNPCollection.SaveFailedOrder(FailedPort, (err, res)=>{
-                    if (err) console.info("DB error", err)
-                })
+                if (payLoad['failed_numbers'].length){
+
+                    const FailedPort = {
+                        customer_id:payLoad.customer_id,
+                        customer_name:payLoad.customer_name,
+                        job_status:payLoad.job_status,
+                        port_status:payLoad.status,
+                        port_uuid:payLoad.portin_uuid,
+                        order_uuid : order.uuid,
+                        order_bulk_id :order.bulkUuid,
+                        failed_numbers: JSON.stringify(payLoad.failed_numbers),
+                        completed_numbers: JSON.stringify(payLoad.completed_numbers),
+                        web_link:payLoad.order_url,
+                        create_date:this.currentDate(true, payLoad.create_date),
+                        last_update:this.currentDate(true, payLoad.last_update),
+                        error:JSON.stringify(payLoad.errors_list),
+                        restart_counter:0,
+                        done:false,
+                        can_restart:true
+                    };
+                    LNPCollection.SaveFailedOrder(FailedPort, (err, res)=>{
+                        if (err) console.info("DB error", err)
+                    })
+                }else{
+                    logger.info(`No failed numbers for order Uuid ${order.uuid}`)
+                }
+
 
                 return callback(false, key, payLoad, job);
             }
@@ -313,43 +322,44 @@ class LNPJobs {
                         let number = payLoad['failed_numbers'][x];
                         payLoad['errors'][number] = '';
                     }
-                }
-                let job_errors = payLoad['job_errors'];
-                
-                for (var j in job_errors) {
-                    var error = job_errors[j];
-                    if (payLoad.errors.hasOwnProperty(error.identifier.value)) {
-                        payLoad['errors_list'].push(error.identifier.value + ' : ' + error.message);
+                    let job_errors = payLoad['job_errors'];
+                    
+                    for (let j in job_errors) {
+                        let error = job_errors[j];
+                        if (payLoad.errors.hasOwnProperty(error.identifier.value)) {
+                            payLoad['errors_list'].push(error.identifier.value + ' : ' + error.message);
+                        }
                     }
+    
+                    // send email
+                    this.sendEmail({
+                        from: 'christian.augustine@8x8.com',
+                        to: "gas@8x8.com,LNP-escalations@8x8.com,christian.augustine@8x8.com",
+                        //to: "caugustine@8x8.com, steve.ohara@8x8.com,liviu.munteanu@8x8.com,hector.mayorga@8x8.com,andrei.larionescu@8x8.com,neil.lavelle@8x8.com",
+                        subject: `Sev 1 - LNP Issues!!! Action required: Customer (${payLoad.customer_name})`,
+                        text: "Some Details.",
+                        html: this.makeTable(payLoad)
+                    });
                 }
-
-                // send email
-                this.sendEmail({
-                    from: 'christian.augustine@8x8.com',
-                    to: "gas@8x8.com",
-                    //to: "caugustine@8x8.com, steve.ohara@8x8.com,liviu.munteanu@8x8.com,hector.mayorga@8x8.com,andrei.larionescu@8x8.com,neil.lavelle@8x8.com",
-                    subject: `LNP Port Failure: Customer ${payLoad.customer_name}`,
-                    text: "Some Details.",
-                    html: this.makeTable(payLoad)
-                });
-            } else {
-                let failed_numbers, completed_numbers = [];
-                if (job){
-                    failed_numbers = job.detailedStatus.failed && job.detailedStatus.failed.length ? job.detailedStatus.failed : [];
-                    completed_numbers = job.detailedStatus.completed && job.detailedStatus.completed.length ? job.detailedStatus.completed : [];
-                }
-                logger.info(`Order ID: ${order.uuid} \nStatus: ${order.status} \nCompleted List : ${completed_numbers.length} \nFailed List: ${JSON.stringify(failed_numbers)}`);
-            }
+            } 
+            // else {
+            //     let failed_numbers, completed_numbers = [];
+            //     if (job){
+            //         failed_numbers = job.detailedStatus.failed && job.detailedStatus.failed.length ? job.detailedStatus.failed : [];
+            //         completed_numbers = job.detailedStatus.completed && job.detailedStatus.completed.length ? job.detailedStatus.completed : [];
+            //     }
+            //     logger.info(`Order ID: ${order.uuid} \nStatus: ${order.status} \nCompleted List : ${completed_numbers.length} \nFailed List: ${JSON.stringify(failed_numbers)}`);
+            // }
         });
     }
 
     getJobHistory(cb){
         let History ={};
-        let lastCreateDate = new Date(new Date().setDate(new Date().getDate() - 10));
+        let lastCreateDate = new Date(new Date().setDate(new Date().getDate() - 1));
         LNPCollection.getFailedJobs({}, (err, res)=>{
             if (!err && res && res.length > 0){
                 for (let x =0, l=res.length; x <l; ++x){
-                    if (x == 0) lastCreateDate = res[x].create_date
+                    if (x == 0) lastCreateDate = res[x].last_update
                     if(!History[res[x].order_uuid]){
                         History[res[x].order_uuid] ={
                             port_uuid:res[x].port_uuid,
@@ -374,9 +384,9 @@ class LNPJobs {
         });
     }
 
-    GetPortinsByUUID(token, options, portin){
+    GetPortinsByUUID(token, portin){
         let customerid = portin.customerId;
-        let phonenumber = portin.phoneNumber;
+        let phonenumber = portin.phoneNumbers;
         this.GetCustomer(token, customerid, (err, customerResponse) => {
 
             if (!err && customerResponse && customerResponse.content) {
@@ -394,28 +404,14 @@ class LNPJobs {
                     temp_phonenumber: portin.temporaryDid ? portin.temporaryDid.phoneNumber : ''
                 };
 
-
-                //Get the port order to find the activation job
-                options.url = `${APIHOST}/dms/v2/portins`;
-                var query = {
-                    pageKey: '0',
-                    limit: '20',
-                    filter: 'didUuids=contains=' + portin.uuid
-                };
-                options.qs = query;
-                this.GET(options, (err, body) => {
-                    if (!err) {
-                        body.content.forEach((order) => {
-                            this.NotifyByEmail(token, order, payLoad);
-                        });
-                    }
-                });
+                this.NotifyByEmail(token, portin, payLoad);
             }
         });
     }
 
-    doNext(token, query, lastCreateDate, History){
+    doNext(token, lastCreateDate, History){
         return (error, body) => {
+            
             if (error) {
                 throw new Error(error);
             }
@@ -427,20 +423,26 @@ class LNPJobs {
                 logger.info("---Found %d portin records", content.length);
                 for (var i in content) {
                     const portin = content[i];
-                    const orderID = portin.lastOrderUuid;
+                    const orderID = portin.uuid;
                     // Prevent processing multiple order as each DID in an order shares one orderId
                     if (!History[orderID]) {
-                        this.GetPortinsByUUID(token, query, portin);
+                        this.GetPortinsByUUID(token, portin);
                     }
                     // Skip
                 }
 
                 if (body.nextPageKey){
-                    query.qs = {
-                        limit: '200',
-                        filter: `status==PORTED;lastUpdatedDateTime=ge=${lastCreateDate}&pageKey=${body.nextPageKey}`
+
+                    const options = {
+                        method: 'GET',
+                        url: `${body.nextPageLink}`,
+                        headers: {
+                            Authorization: `Bearer  ${token}`,
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
                     }
-                    this.GET(query, this.doNext(token, query,lastCreateDate, History));
+                    logger.info(`Getting next batch - ${body.nextPageLink}`)
+                    this.GET(options, this.doNext(token, lastCreateDate, History));
                 }
             } else {
                 logger.info("---------- It's good news! No stuck Portins!!! -----------");
@@ -461,7 +463,7 @@ class LNPJobs {
     
                 const options = {
                     method: 'GET',
-                    url: `${APIHOST}/dms/v2/dids`,
+                    url: `${APIHOST}/dms/v2/portins`,
                     headers: {
                         Authorization: `Bearer  ${token}`,
                         'Content-Type': 'application/x-www-form-urlencoded'
@@ -470,12 +472,12 @@ class LNPJobs {
                 const query = {
                     pageKey: '0',
                     limit: '200',
-                    filter: `status==PORTED;lastUpdatedDateTime=ge=${lastCreateDate}T00:00:00`
+                    filter: `status==COMPLETED;lastUpdatedDateTime=ge=${lastCreateDate}T00:00:00`
                 };
     
                 options.qs = query;
     
-                this.GET(options, this.doNext(token, options,lastCreateDate, history));
+                this.GET(options, this.doNext(token,lastCreateDate, history));
             });
         })
     }
