@@ -5,7 +5,7 @@
  * LNP Port Jobs. It sents email to some alias if there are failed jobs
  */
 
-const CONFIG = require('../config/config');
+const CONFIG = require('../Config/config');
 const request = require("request");
 const logger = require('../utils/app-logger');
 const LNPCollection = require('./LnpDBController')
