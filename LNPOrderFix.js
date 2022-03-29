@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-const chalk = require('chalk');
-const clear = require('clear');
-const figlet = require('figlet');
+const Logger = require('./src/utils/app-logger')
 var request = require("request");
 var prompt = require('prompt');
 const term = require( 'terminal-kit' ).terminal ;
@@ -91,13 +89,13 @@ function createDIDBinding(access_token, BindingDetails) {
 
     request(options,  (error, response, body) => {
         if (error){
-            console.info("Error:", error);
-            console.info("createDIDBinding payload", BindingDetails);
+            Logger.info("Error:", error);
+            Logger.info("createDIDBinding payload", BindingDetails);
             throw new Error(error);
         }
         var result = body;
         if (result.failed) {
-            console.error(chalk.red.bold("[*] Could not create DID Binding.", result.failed));
+            Logger.error(`[*] Could not create DID Binding.", result.failed)`);
         } else if (result.success && result.success[0].message === 'Success') {
             swapTempDID(access_token, BindingDetails);
         }
@@ -115,14 +113,14 @@ function deleteDidBinding(access_token, BindingDetails) {
             Authorization: 'Bearer ' + access_token
         }
     };
-    console.info('"DELETING didBinding [ %s ]', BindingDetails.didBindingId);
+    Logger.info(`"DELETING didBinding [ ${BindingDetails.didBindingId}]`);
     
     DELETEDATA(options, (error, result)=> {
         if (!error && result.failed) {
-            console.error("[*] Failed to delete didBinding. ", result.failed[0]);
+            Logger.error(`[${result.failed[0]}] Failed to delete didBinding.` );
         } else {
             if (result.success) {
-                console.info(chalk.green("[i] Successfully DELETED didBinding ", JSON.stringify(result.success[0])));
+                Logger.info(`[i] Successfully DELETED didBinding`, JSON.stringify(result.success[0]));
                 return createDIDBinding(access_token, BindingDetails);
             }
         }
@@ -142,7 +140,7 @@ function getDIDBinding(access_token, customerId, permanentDidId, callback) {
         }
     };
 
-    console.info('[i] Getting didbindings...');
+    Logger.info('[i] Getting didbindings...');
     return GETDATA(options, callback);
 }
 
@@ -159,26 +157,26 @@ function recreateDIDBinding(access_token, BindingDetails) {
             BindingDetails.pbxId = pbxId;
             BindingDetails.didBindingId = didBindingId;
 
-            console.info("[i] Found didbinding [ %s ] for subscriptionId [ %s ] on PBX [ %s ]  ", didBindingId, pbxId, subscriptionId);
+            Logger.info(`[i] Found didbinding [${didBindingId}] for subscriptionId [${pbxId}] on PBX [${subscriptionId}] `);
 
             if (BindingDetails.customerId && didBindingId && pbxId) {
                 deleteDidBinding(access_token, BindingDetails)
             }
         }else{
-            console.error(`No result find with TempUuid and PermUuid`);
+            Logger.error(`No result find with TempUuid and PermUuid`);
         }
     }
 
     getDIDBinding(access_token, BindingDetails.customerId, BindingDetails.tempUUID, (error, result)=>{
 
         if (!error && result.pageResultSize === 0){
-            console.info(`DID Binding could not be found with TempUuid ${BindingDetails.tempUUID} Attempting with permUuid ${BindingDetails.permUUID}`);
+            Logger.info(`DID Binding could not be found with TempUuid ${BindingDetails.tempUUID} Attempting with permUuid ${BindingDetails.permUUID}`);
             getDIDBinding(access_token, BindingDetails.customerId , BindingDetails.permUUID, (error, result)=>{
 
                 BindingDetails.actualTempUUID = BindingDetails.tempUUID;
                 if (BindingDetails.permUUID !== BindingDetails.tempUUID){
                     BindingDetails.tempUUID = BindingDetails.permUUID;
-                    console.warn(`We are using the PermUUID to recreate the DID bining as the TemUUID data could not be found!`)
+                    Logger.warn(`We are using the PermUUID to recreate the DID bining as the TemUUID data could not be found!`)
                 }
                 buildAndDeleteDidBinding(BindingDetails, error, result);
             })
@@ -204,9 +202,9 @@ function createChannel (access_token, BindingDetails) {
     };
     request(options, function (error, result, body) {
         if (body.failed) {
-            console.error(chalk.red.bold(`[*] Channel creation FAILED for ${BindingDetails.portedNumber} with error:\n ${body}`));
+            Logger.error(`[*] Channel creation FAILED for ${BindingDetails.portedNumber} with error:\n ${body}`);
         } else if (body.success){
-            console.info (`Channel ${body.success[0].resourceId} successfully created for ${BindingDetails.portedNumber}`)
+            Logger.info (`Channel ${body.success[0].resourceId} successfully created for ${BindingDetails.portedNumber}`)
         }
     })
 };
@@ -226,10 +224,10 @@ function assignToVCC (access_token, BindingDetails) {
     }
     request(options, function (error, result, body) {
             if (!error && body.orders[0].status === 'COMPLETED') {
-                console.info(chalk.green.bold(`[i] Number ${BindingDetails.portedNumber} successfully assigned to VCC.`));
+                Logger.info(`[i] Number ${BindingDetails.portedNumber} successfully assigned to VCC.`);
                 createChannel (access_token, BindingDetails);
             } else {
-                console.error(`[*] Owner unassignment FAILED`);
+                Logger.error(`[*] Owner unassignment FAILED`);
             }
     })
 };
@@ -249,10 +247,10 @@ function unassignDMS (access_token, BindingDetails) {
     }
         request(options, function (error, result, body) {
             if (!error && body.orders[0].status === 'COMPLETED') {
-                console.info(chalk.green.bold(`[i] Number successfully unassigned. Claiming Temp`));
+                Logger.info(`[i] Number successfully unassigned. Claiming Temp`);
                 ClaimTemp (access_token, BindingDetails);
             } else {
-                console.error(`[*] Owner unassignment FAILED`);
+                Logger.error(`[*] Owner unassignment FAILED`);
             }
     })
 };
@@ -308,7 +306,7 @@ function VerifyNumberStatusAfterClaim(access_token, BindingDetails) {
        } else if (!err && result.content[0].status === 'PORTED'){
             toggleDms (access_token, BindingDetails);
        } else {
-            console.info(chalk.green.bold(`Operation ended.`));
+        Logger.info(`Operation ended.`);
        }
     })
 };
@@ -316,7 +314,7 @@ function VerifyNumberStatusAfterClaim(access_token, BindingDetails) {
 // function to claim temp number back to DMS
 function ClaimTemp(access_token, BindingDetails) {
         if (!BindingDetails && !BindingDetails.customerId && !BindingDetails.tempUUID) {
-        console.error("[*] Missing DID Information (customerId;tempUUID)", BindingDetails);
+            Logger.error("[*] Missing DID Information (customerId;tempUUID)", BindingDetails);
     }
     let options = {
         method: 'POST',
@@ -339,18 +337,18 @@ function ClaimTemp(access_token, BindingDetails) {
         }   
         if (body.failed) {
             var result = body.failed[0];
-            console.error(chalk.red.bold("[*] Claim FAILED with error: ", result.failed));
+            Logger.error("[*] Claim FAILED with error: ", result.failed);
         } else if (body.success)
         {
-                console.info("body", body)
+            //Logger.info("body", body)
             var result = body.success[0];
             if (result.message === 'Success') {
-                console.info(chalk.green.bold(`[i] Temp ${BindingDetails.tempNumber} was successfully claimed`));
+                Logger.info(`[i] Temp ${BindingDetails.tempNumber} was successfully claimed`);
                 //Verify the number status in DMS is not stuck in PORTED
                 VerifyNumberStatusAfterClaim(access_token, BindingDetails)
             }
         } else if (body.status === 'CREATED') {
-            console.info(chalk.green.bold(`[i] Temp ${BindingDetails.tempNumber} was successfully claimed`));
+            Logger.info(`[i] Temp ${BindingDetails.tempNumber} was successfully claimed`);
             VerifyNumberStatusAfterClaim(access_token, BindingDetails)
         }
     });
@@ -384,7 +382,7 @@ function swapTempDID(access_token, BindingDetails) {
             var result = body.failed[0];
             if (result.code === 'INVALID_DID_BINDING')
             {
-                console.info("[*] INVALID_DID_BINDING. Attempting to recreate didBinding");
+                Logger.info("[*] INVALID_DID_BINDING. Attempting to recreate didBinding");
                 recreateDIDBinding(access_token, BindingDetails);
             } else {
                 //console.info("swapTempDID failure response", body)
@@ -393,7 +391,7 @@ function swapTempDID(access_token, BindingDetails) {
         } else if (body.success) {
             var result = body.success[0];
             if (result.message === 'Success') {
-                console.info(chalk.greenBright(`[i] Number SWAP successfull. (permanentDid put into service)`));
+                Logger.info(`[i] Number SWAP successfull. (permanentDid put into service)`);
                 //Call to claim the Temp
                 ClaimTemp(access_token, BindingDetails);
             }
@@ -416,7 +414,7 @@ function checkChannels (access_token, BindingDetails) {
     GETDATA(options, (error, response)=>{
         if (!error && response.pageResultSize > 0){
             var channel = response.content.pop();
-            console.info('[i] Found Channel info: \n', channel);
+            Logger.info('[i] Found Channel info: ', channel);
             let options = {
                 method: 'DELETE',
                 url: `https://${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${BindingDetails.siteId}/channels/${channel.channelId}`,
@@ -428,18 +426,18 @@ function checkChannels (access_token, BindingDetails) {
             };
             DELETEDATA(options, function (error, result) {
                 if (!error && result.failed) {
-                    console.error("[*] Failed to delete. ", result.failed[0]);
+                    Logger.error("[*] Failed to delete. ", result.failed[0]);
                 } else {
                     if (result.success) {
-                        console.info(chalk.green.bold(`[i] Successfully removed Temp ${BindingDetails.tempNumber} from channel list`));
-                        console.info(`[i] Unassigning Temp ${BindingDetails.tempNumber} from VCC service`)
+                        Logger.info(`[i] Successfully removed Temp ${BindingDetails.tempNumber} from channel list`);
+                        Logger.info(`[i] Unassigning Temp ${BindingDetails.tempNumber} from VCC service`)
                         unassignDMS (access_token, BindingDetails);
                     }
                 }
             });
         } else {
-            console.info(chalk.red.bold("[*] Channel NOT found."));
-            console.warn(chalk.yellow.bold(`[i] Going to unassign TEMP from ${BindingDetails.tempOwner}`));
+            Logger.info("[*] Channel NOT found.");
+            Logger.warn(`[i] Going to unassign TEMP from ${BindingDetails.tempOwner}`);
             unassignDMS (access_token, BindingDetails);
         }
     })
@@ -449,10 +447,10 @@ function checkSiteResult (access_token, siteResult, pbxlistLength, BindingDetail
     if (siteResult.size === pbxlistLength) {
         for ( let [key, value] of siteResult) {
             if (value === false){
-                console.info (`[i] None found for pbx: "${[key]}"`)
+                Logger.info (`[i] None found for pbx: "${[key]}"`)
             } else {
-                console.info (chalk.green(`[i] Found site: ${BindingDetails.siteId} for pbx: "${[key]}"`))
-                console.info (`[i] Looking for Temp number in channel list`)
+                Logger.info (`[i] Found site: ${BindingDetails.siteId} for pbx: "${[key]}"`)
+                Logger.info (`[i] Looking for Temp number in channel list`)
                 checkChannels (access_token, BindingDetails)
             }
         
@@ -497,7 +495,7 @@ function getCustomerDetails (access_token, BindingDetails) {
             Authorization: `Bearer ${access_token}`
         }
     };
-    console.info(chalk.grey(`[i] Getting PBX info for: ${BindingDetails.customerId}`));
+    Logger.info(`[i] Getting PBX info for: ${BindingDetails.customerId}`);
     request(options, function (error, response, body) {
         if (error){
             throw new Error(error);
@@ -505,7 +503,7 @@ function getCustomerDetails (access_token, BindingDetails) {
         if (body){
             var data = JSON.parse(body);
             if (data.pageResultSize > 0 ){ 
-                console.warn(`[i] Looking up VCC Site`);
+                Logger.warn(`[i] Looking up VCC Site`);
                 let pbxlist = data.content;
                 var siteResult = new Map ();
                 pbxlist.forEach ((item) => {
@@ -514,7 +512,7 @@ function getCustomerDetails (access_token, BindingDetails) {
                         getVCCsite (access_token, BindingDetails.customerId, item.pbxId, BindingDetails.pbxName, siteResult, pbxlist.length, BindingDetails);
                 });
             }else{
-                console.info (chalk.redBright.bold(`[**[error]] Could not find PBX for ${BindingDetails.customerId}`));
+                Logger.info (`[**[error]] Could not find PBX for ${BindingDetails.customerId}`);
             }
         }
     });
@@ -534,7 +532,7 @@ function getFaxDID(access_token, BindingDetails){
         GETDATA(options, (error, response)=>{
             if (!error && response.pageResultSize > 0){
                 var fax = response.content.pop();
-                console.info('FAX: ', fax)
+                consLoggerole.info('FAX: ', fax)
                 if (fax.status === 'AVAILABLE') {
                     let options = {
                         method: 'DELETE',
@@ -547,10 +545,10 @@ function getFaxDID(access_token, BindingDetails){
                     };
                     DELETEDATA(options, function (error, result) {
                         if (!error && result.failed) {
-                            console.error("[*] Failed to delete didBinding. ", result.failed[0]);
+                            Logger.error("[*] Failed to delete didBinding. ", result.failed[0]);
                         } else {
                             if (result.success) {
-                                console.info(chalk.green.bold("[i] Successfully DELETED Temp DID from FAX service %o", JSON.stringify(result.success[0])));
+                                Logger.info(`[i] Successfully DELETED Temp DID from FAX service ${JSON.stringify(result.success[0])}`);
                                 swapTempDID(access_token, BindingDetails); 
                             }
                         }
@@ -558,8 +556,8 @@ function getFaxDID(access_token, BindingDetails){
                 }else{
                     //Todo
                     //What else????
-                    //console.info(chalk.redBright.bold(`Work in progess! We detected Stataus ${fax.status} which is not yet implemented!`));
-                    console.warn(chalk.yellow.bold(`[i] Going to unassign TEMP from ${BindingDetails.tempOwner}`));
+                    //Logger.info(`Work in progess! We detected Stataus ${fax.status} which is not yet implemented!`);
+                    Logger.warn(`[i] Going to unassign TEMP from ${BindingDetails.tempOwner}`);
                     unassignDMS (access_token, BindingDetails);
                 }
             }
@@ -602,35 +600,35 @@ function getPortDetails(access_token, phoneNumber) {
                     BindingDetails.tempNumber = content.temporaryDid.phoneNumber
                     BindingDetails.tempStatus = content.temporaryDid.status
                     BindingDetails.tempOwner = content.temporaryDid.serviceOwner
-                    console.info(`[i] PERM ${BindingDetails.portedNumber} :: uuid: ${BindingDetails.permUUID} || ${BindingDetails.permStatus}(${BindingDetails.permOwner})`);
-                    console.info(chalk.green.dim(`[i] TEMP ${BindingDetails.tempNumber} :: uuid: ${BindingDetails.tempUUID} || ${BindingDetails.tempStatus}(${BindingDetails.tempOwner})`));
+                    Logger.info(`[i] PERM ${BindingDetails.portedNumber} :: uuid: ${BindingDetails.permUUID} || ${BindingDetails.permStatus}(${BindingDetails.permOwner})`);
+                    Logger.info(`[i] TEMP ${BindingDetails.tempNumber} :: uuid: ${BindingDetails.tempUUID} || ${BindingDetails.tempStatus}(${BindingDetails.tempOwner})`);
                     if (BindingDetails.tempStatus === 'AVAILABLE') {
-                        console.info(chalk.yellow.bold("[i] Temp Number in status ") + chalk.green.bold(`${BindingDetails.tempStatus}`) +chalk.yellow.bold(", Claiming Temporary."));
+                        Logger.info(`[i] Temp Number in status ${BindingDetails.tempStatus} Claiming Temporary.`);
                         ClaimTemp(access_token, BindingDetails);
                     } else {
                             // Handle VO failures
                         if (BindingDetails.tempOwner === 'vo') {
-                            console.info('[i] Temporary owned by VO. Attempting number SWAP' );
+                            Logger.info('[i] Temporary owned by VO. Attempting number SWAP' );
                             swapTempDID(access_token, BindingDetails); 
                         }
                             // Handle fax failures
                         if (BindingDetails.tempOwner === 'fax'){
-                            console.info(chalk.gray.bold("[i] Temporary assigned to FAX service. Getting VCC data"))
+                            Logger.info(`[i] Temporary assigned to FAX service. Getting VCC data`)
                             getFaxDID(access_token, BindingDetails)
                         }
                             // Handle VCC failures 
                         if ( BindingDetails.tempOwner === 'VCC' || BindingDetails.tempOwner === 'vcc') {
-                            console.info(chalk.gray.bold("[i] Temporary assigned to VCC. Getting VCC data"))
+                            Logger.info(`[i] Temporary assigned to VCC. Getting VCC data`)
                             BindingDetails.vccChannelflag = true;
                             getCustomerDetails(access_token, BindingDetails);
                         }
                     }
                 } else {
-                    console.info (chalk.redBright.bold(`[i] Number ${BindingDetails.portedNumber} has no temporary attached. No action to take.`));
+                    Logger.info (`[i] Number ${BindingDetails.portedNumber} has no temporary attached. No action to take.`);
                     VerifyNumberStatusAfterClaim(access_token, BindingDetails);
                     }
         } else {
-            console.info (chalk.red.dim(`**[error] Number of ${phoneNumber} was not found in DMS. Please make sure the number is correct and try again`));
+            Logger.info (`**[error] Number of ${phoneNumber} was not found in DMS. Please make sure the number is correct and try again`);
             LookUpNumber(access_token);
         };
     });
@@ -651,7 +649,7 @@ function getAffectedNumbers (access_token, CustomerOrder){
                     return;
             }, 5000)
         }else{
-            console.info(chalk.greenBright(`Could not find any failed numbers for the mentioned Order`));
+            Logger.info(`Could not find any failed numbers for the mentioned Order`);
             LookUpOrder();
         }
     }
@@ -661,23 +659,22 @@ function getAffectedNumbers (access_token, CustomerOrder){
         if (!error && result.status !== 'FAILED'){
             //check if there there are pending numbers
             let pendingList = result.detailedStatus.pending;
-            console.info(chalk.yellowBright(`The Job status is "${result.status}" and there [${result.detailedStatus.failed}] numbers.`));
-            //clear();
+            Logger.info(`The Job status is "${result.status}" and there [${result.detailedStatus.failed}] numbers.`);
             term.yellow(`There ${pendingList.length} pending numbers. DO YOU WANT TO SWAP THE PENIDING LIST?\n`);
 
             let options = {
-                message: chalk.yellowBright.bold('Please confirm YES of NO to continue'),
+                message: 'Please confirm YES of NO to continue',
                 name: 'Confirm',
             }
             getUserInput( options, (err, confirmation) =>{
                 if (confirmation.toLowerCase() === 'yes') {
-                    console.info (`You have selected to swap the Pending list!! I hope you know what your doing!`);
+                    Logger.info (`You have selected to swap the Pending list!! I hope you know what your doing!`);
                     LoopList(access_token, pendingList);
                 }else if(confirmation.toLowerCase() === 'no'){
-                    console.info (`You choosed not to proceed! Wise choice ;)`);
+                    Logger.info (`You choosed not to proceed! Wise choice ;)`);
                     return
                 }else{
-                    console.info (`Invalid choice!`);
+                    Logger.info (`Invalid choice!`);
                     return
                 }
             });
@@ -688,7 +685,7 @@ function getAffectedNumbers (access_token, CustomerOrder){
                 LoopList(access_token, result.detailedStatus.failed);
                 
             } else {
-                console.info (chalk.green.bold(`This is NOT a failed order`));
+                Logger.info (`This is NOT a failed order`);
                 LookUpOrder();
             }
         }
@@ -734,7 +731,7 @@ function GetPortinJobByOrderID (access_token, orderId) {
     GETDATA(options, (err, body) => {
         if (!err && body.content && body.content.length > 0) {
             let order = body.content.pop();
-            console.info(`[i] Getting Order Details`);
+            Logger.info(`[i] Getting Order Details`);
             let CustomerOrder = {
                 customerId:order.customerId,
                 bulkUuid : order.bulkUuid,
@@ -744,7 +741,7 @@ function GetPortinJobByOrderID (access_token, orderId) {
             getAffectedNumbers (access_token, CustomerOrder)
         
         }else{
-            console.info(chalk.red.bold(`[*] Could not find any results. Please make sure Order ID is VALID`));
+            Logger.info(`[*] Could not find any results. Please make sure Order ID is VALID`);
             LookUpOrder();
         }
     });
@@ -754,14 +751,14 @@ function GetPortinJobByOrderID (access_token, orderId) {
 function LookUpNumber(access_token){
     
     let options = {
-        message: chalk.yellowBright.bold('Please enter Ported numer in international format'),
+        message: 'Please enter Ported numer in international format',
         name: 'Confirm',
         validator: /^\+(?:[0-9] ?){6,14}[0-9]$/,
         warning: '[WARNING] Phone number is not valid, please use international format!'
     }
     getUserInput( options, (err, phonenumber) =>{
         if (phonenumber) {
-            console.info (`[i] Fetching DID Information for ${phonenumber}`)
+            Logger.info (`[i] Fetching DID Information for ${phonenumber}`)
             getPortDetails(access_token, phonenumber)
         }
     });
@@ -771,7 +768,7 @@ function LookUpNumber(access_token){
 function LookUpOrder(access_token){
     
     let options = {
-        message: chalk.yellowBright.bold('Please enter Order Id'),
+        message: 'Please enter Order Id',
         name: 'Confirm',
         validator: '[0-9-a-z]{36}',
         warning: 'Oder ID must have a length of 36 characters incuding hyphens'
@@ -788,7 +785,7 @@ getToken( (error, response, body) =>{
     if (!error)
     {
         var tokenObject = JSON.parse(body);
-        console.log(chalk.yellow(figlet.textSync('LNP TOOL', { horizontalLayout: 'full' })));
+        Logger.info('LNP TOOL');
         term.cyan( 'Please select the option you would like to run this for.\n' ) ;
         var items = [
             '1. Single Number' ,
@@ -797,15 +794,15 @@ getToken( (error, response, body) =>{
         
         term.singleColumnMenu( items , ( error , response )=> {
             if (response.selectedIndex === 0) {
-                console.info (`You selected single number mode`);
+                Logger.info (`You selected single number mode`);
                 LookUpNumber(tokenObject.access_token);
             };
             if (response.selectedIndex === 1) {
-                console.info (`You selected full Order mode`);
+                Logger.info (`You selected full Order mode`);
                 LookUpOrder(tokenObject.access_token);
             };
         });  
     } else{
-        console.error(`Unable to get Token!`);
+        Logger.error(`Unable to get Token!`);
     }
 });

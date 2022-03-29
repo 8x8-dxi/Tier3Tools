@@ -15,8 +15,10 @@
     "mongoose": "^5.10.13",
     "nodemailer": "^6.7.3",
     "pm2": "^5.2.0",
+    "prompt": "^1.2.2",
     "redis": "^4.0.4",
     "request": "^2.88.2",
+    "terminal-kit": "^2.4.0",
     "winston": "^3.6.0",
     "winston-daily-rotate-file": "^4.6.1"
   },
