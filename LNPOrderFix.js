@@ -306,8 +306,13 @@ function VerifyNumberStatusAfterClaim(access_token, BindingDetails) {
        } else if (!err && result.content[0].status === 'PORTED'){
             toggleDms (access_token, BindingDetails);
        } else {
-        Logger.info(`Operation ended.`);
+           Logger.info(`Operation ended.`);
        }
+       
+       if(BindingDetails.tempOwner === 'VCC' || BindingDetails.tempOwner === 'vcc'){
+            DeleteVCCCMTempViaProvAPI(access_token, BindingDetails, (err, res) =>{
+            })
+        }
     })
 };
 
@@ -399,8 +404,7 @@ function swapTempDID(access_token, BindingDetails) {
     });
 }
 
-// Check Channels
-function checkChannels (access_token, BindingDetails) {
+function getTempVCCChannel(access_token, BindingDetails, callback){
     BindingDetails.tempNumber = BindingDetails.tempNumber.replace(/[+]/g, "");
     let options = {
         method: 'GET',
@@ -411,51 +415,103 @@ function checkChannels (access_token, BindingDetails) {
             Authorization: `Bearer ${access_token}`
         }
     };
+    let channel = null;
     GETDATA(options, (error, response)=>{
         if (!error && response.pageResultSize > 0){
-            var channel = response.content.pop();
-            Logger.info('[i] Found Channel info: ', channel);
+            channel = response.content.pop();
+        }
+        return callback(error, channel)
+    })
+}
+
+function DeleteTempChannel(access_token, BindingDetails){
+
+    getTempVCCChannel(access_token, BindingDetails, (err, channel)=>{
+        if (!err && channel){
             let options = {
                 method: 'DELETE',
-                url: `https://${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${BindingDetails.siteId}/channels/${channel.channelId}`,
+                url: `https://${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${channel.siteId}/channels/${channel.channelId}`,
                 headers:{
                     Host: APIHOST,
                     'Content-Type': 'application/json',
                     Authorization: 'Bearer ' + access_token
                 }
             };
-            DELETEDATA(options, function (error, result) {
+            DELETEDATA(options,  (error, result)=> {
                 if (!error && result.failed) {
-                    Logger.error("[*] Failed to delete. ", result.failed[0]);
+                    Logger.error(`Failed to delete temp VCC channel ${JSON.stringifyresult.failed}`);
                 } else {
-                    if (result.success) {
-                        Logger.info(`[i] Successfully removed Temp ${BindingDetails.tempNumber} from channel list`);
-                        Logger.info(`[i] Unassigning Temp ${BindingDetails.tempNumber} from VCC service`)
-                        unassignDMS (access_token, BindingDetails);
-                    }
+                    Logger.info(`[i] Successfully DELETED Temp VCC Chanell ${JSON.stringify(result)}`);
                 }
             });
-        } else {
-            Logger.info("[*] Channel NOT found.");
-            Logger.warn(`[i] Going to unassign TEMP from ${BindingDetails.tempOwner}`);
-            unassignDMS (access_token, BindingDetails);
         }
     })
+}
+
+function DeleteVCCCMTempViaProvAPI(access_token, BindingDetails, callback){
+    let options = {
+        method: 'POST',
+        url : `https://vcc-provapi-prod.8x8.com/tenant/${BindingDetails.VCCTenantID}/phone/delete/${BindingDetails.tempNumber}`,
+        headers:{
+            'Content-Type': 'application/xml',
+            Authorization: `Bearer ${access_token}`
+        },
+        body : `<request>
+                    <user id="pma" agent="Account Manager"></user>
+                    <phone clidblk="enabled" calling-name="8x8, Inc." site="${BindingDetails.siteId}" cluster="${BindingDetails.clusterId}"></phone>
+                </request>`
+    }
+    request(options, function (error, result) {
+        if (!error && result.failed) {
+            Logger.error("[*] Failed to delete. ", result.failed[0]);
+            return callback(true, result.failed)
+        } else {
+            if (result.success) {
+                Logger.info(`[i] Successfully removed Temp ${BindingDetails.tempNumber} from channel list`);
+                Logger.info(`[i] Unassigning Temp ${BindingDetails.tempNumber} from VCC service`)
+                return callback(error)
+            }
+        }
+    });
+}
+
+// Check Channels
+function checkChannels (access_token, BindingDetails) {
+ 
+    unassignDMS (access_token, BindingDetails);
+    /*
+    // This is an alternative call to DeleteVCCCMTempViaProvAPI
+    getTempVCCChannel(access_token, BindingDetails, (err, channel)=>{
+        if (!err && channel){
+        }
+    })
+    */
+        //      
 };
 
 function checkSiteResult (access_token, siteResult, pbxlistLength, BindingDetails) {
-    if (siteResult.size === pbxlistLength) {
-        for ( let [key, value] of siteResult) {
-            if (value === false){
-                Logger.info (`[i] None found for pbx: "${[key]}"`)
-            } else {
-                Logger.info (`[i] Found site: ${BindingDetails.siteId} for pbx: "${[key]}"`)
-                Logger.info (`[i] Looking for Temp number in channel list`)
-                checkChannels (access_token, BindingDetails)
-            }
-        
-        }   
-    }
+    getVCCTenant(access_token, BindingDetails, (err, tenant)=>{
+        if(!tenant){
+            Logger.error(`Failed to get tennat for customer ID ${BindingDetails.customerId} Error: ${JSON.stringify(err)}`)
+            return 
+        }
+
+        BindingDetails.VCCTenantID = tenant.tenantId
+        BindingDetails.siteId = tenant.siteId
+        BindingDetails.clusterId = tenant.clusterId
+
+        if (siteResult.size === pbxlistLength) {
+            for ( let [key, value] of siteResult) {
+                if (value === false){
+                    Logger.info (`[i] None found for pbx: "${[key]}"`)
+                } else {
+                    Logger.info (`[i] Found site: ${BindingDetails.siteId} for pbx: "${[key]}"`)
+                    Logger.info (`[i] Looking for Temp number in channel list`)
+                    checkChannels (access_token, BindingDetails)
+                }
+            }   
+        }
+    })
 }
 
 // GET VCC site
@@ -517,6 +573,25 @@ function getCustomerDetails (access_token, BindingDetails) {
         }
     });
 };
+
+function getVCCTenant(access_token, BindingDetails, callback){
+    let options = {
+        method: 'GET',
+        url: `https://cloud8gatekeeper.us-west-2.prod.cloud.8x8.com/vcc-globalprovisioning/v1/customers/${BindingDetails.customerId}/tenants`,
+        headers: {
+            Host: APIHOST,
+            Authorization: 'Bearer ' + access_token,
+            'Content-Type': 'application/json'
+        }
+    }
+    let tennant = null
+    GETDATA(options, (error, response)=>{
+        if (!error && response.pageResultSize > 0){
+            tennant = response.pop();
+        }
+        return callback(err, tennant)
+    })
+}
 
 // GET fax service info
 function getFaxDID(access_token, BindingDetails){
