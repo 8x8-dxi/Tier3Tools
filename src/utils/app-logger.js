@@ -14,7 +14,7 @@ const myFormat = printf(info => {
     return `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`;
 });
 
-const logLabel = 'Support Server';
+const logLabel = 'SMP Job Server';
 
 const logger = createLogger({
     format: combine(
