@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const CONF = require('./src/Config/config')
 const Logger = require('./src/utils/app-logger')
 var request = require("request");
 var prompt = require('prompt');
@@ -9,10 +10,10 @@ const { lookup } = require('dns');
 const e = require('express');
 
 // Credentials and Environment
-const AuthToken = 'R0FTX3RlYW06ZWJmMzkwMWI4ODRk';
-const SSOHOST = 'https://sso.8x8.com/oauth2/v1/token';
-const SSOAUTHHOST = 'sso.8x8.com';
-const APIHOST = 'platform.8x8.com';
+const AuthToken = CONF.authKey;
+const SSOHOST = CONF.SSOHOST
+const SSOAUTHHOST = CONF.SSOAUTHHOST;
+const APIHOST = CONF.APIHOST;
 
 /*
 //=============================================
@@ -40,21 +41,22 @@ function getToken(callback) {
                     Authorization: 'Basic ' + AuthToken,
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
-
         form: {
             grant_type: 'client_credentials',
             scope: 'vo'
         }
     };
-        request(options, callback);
+    request(options, callback);
 };
 
 // GET callback with JSON parse 
 function GETDATA(options, callback) {
+    //console.info(options);
     request(options, function (error, response, body) {
         if (error){
             throw new Error(error);
         }
+        //console.info(body)
         return callback(error, JSON.parse(body));
     });
 }
@@ -75,7 +77,7 @@ function createDIDBinding(access_token, BindingDetails) {
     }
     let options = {
         method: 'POST',
-        url: 'https://'+APIHOST+'/vo/config/v1/customers/' + BindingDetails.customerId + '/pbxes/' + BindingDetails.pbxId + '/didbindings',
+        url: APIHOST+'/vo/config/v1/customers/' + BindingDetails.customerId + '/pbxes/' + BindingDetails.pbxId + '/didbindings',
         headers: {
             "content-type": "application/json",
             "Authorization": 'Bearer ' + access_token
@@ -106,7 +108,7 @@ function createDIDBinding(access_token, BindingDetails) {
 function deleteDidBinding(access_token, BindingDetails) {
     let options = {
         method: 'DELETE',
-        url: 'https://'+APIHOST+'/vo/config/v1/customers/' + BindingDetails.customerId + '/pbxes/' + BindingDetails.pbxId + '/didbindings/' + BindingDetails.didBindingId,
+        url: APIHOST+'/vo/config/v1/customers/' + BindingDetails.customerId + '/pbxes/' + BindingDetails.pbxId + '/didbindings/' + BindingDetails.didBindingId,
         headers:{
             Host: APIHOST,
             'Content-Type': 'application/json',
@@ -131,7 +133,7 @@ function deleteDidBinding(access_token, BindingDetails) {
 function getDIDBinding(access_token, customerId, permanentDidId, callback) {
     let options = {
         method: 'GET',
-        url: 'https://'+APIHOST+'/vo/config/v1/customers/' + customerId + '/didbindings',
+        url: APIHOST+'/vo/config/v1/customers/' + customerId + '/didbindings',
         qs: {filter: `permanentDidId==${permanentDidId}`},
         headers: {
             Host: APIHOST,
@@ -190,7 +192,7 @@ function recreateDIDBinding(access_token, BindingDetails) {
 function createChannel (access_token, BindingDetails) {
     let options = {
         method: 'POST',
-        url: `https://${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${BindingDetails.siteId}/channels`,
+        url: `${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${BindingDetails.siteId}/channels`,
         headers:{
             Host: APIHOST,
             'Content-Type': 'application/json',
@@ -213,7 +215,7 @@ function createChannel (access_token, BindingDetails) {
 function assignToVCC (access_token, BindingDetails) {
     let options = {
         method: 'POST',
-        url: `https://${APIHOST}/dms/v2/customers/${BindingDetails.customerId}/bulkassignments`,
+        url: `${APIHOST}/dms/v2/customers/${BindingDetails.customerId}/bulkassignments`,
         headers: {
           'Content-Type': 'application/json',
           clientid: 'VCC',
@@ -236,7 +238,7 @@ function assignToVCC (access_token, BindingDetails) {
 function unassignDMS (access_token, BindingDetails) {
     let options = {
         method: 'POST',
-        url: `https://${APIHOST}/dms/v2/customers/${BindingDetails.customerId}/bulkunassignments`,
+        url: `${APIHOST}/dms/v2/customers/${BindingDetails.customerId}/bulkunassignments`,
         headers: {
           'Content-Type': 'application/json',
           clientid: BindingDetails.tempOwner,
@@ -259,7 +261,7 @@ function unassignDMS (access_token, BindingDetails) {
 function toggleDms (access_token, BindingDetails) {
     let options = {
         method: 'POST',
-        url: `https://${APIHOST}/dms/v2/customers/${BindingDetails.customerId}/bulkassignments`,
+        url: `${APIHOST}/dms/v2/customers/${BindingDetails.customerId}/bulkassignments`,
         headers: {
           'Content-Type': 'application/json',
           clientid: 'vo',
@@ -274,7 +276,7 @@ function toggleDms (access_token, BindingDetails) {
             throw new Error(error);
         }
         //
-        options.url = `https://${APIHOST}/dms/v2/customers/${BindingDetails.customerId}/bulkunassignments`;
+        options.url = `${APIHOST}/dms/v2/customers/${BindingDetails.customerId}/bulkunassignments`;
         request(options, function (error, response, body) {
             if (BindingDetails.vccChannelflag === true) {
                 assignToVCC (access_token, BindingDetails)
@@ -287,7 +289,7 @@ function toggleDms (access_token, BindingDetails) {
 function VerifyNumberStatusAfterClaim(access_token, BindingDetails) {
     let options = {
         method: 'GET',
-        url: `https://${APIHOST}/dms/v2/dids`,
+        url: `${APIHOST}/dms/v2/dids`,
         qs: {
             pageKey: 0,
             limit: 1,
@@ -323,7 +325,7 @@ function ClaimTemp(access_token, BindingDetails) {
     }
     let options = {
         method: 'POST',
-        url: 'https://'+APIHOST+'/dms/v2/customers/' + BindingDetails.customerId + '/bulkquitclaims',
+        url: APIHOST+'/dms/v2/customers/' + BindingDetails.customerId + '/bulkquitclaims',
         headers: {
             'Content-Type': 'application/json',
             Authorization: 'Bearer ' + access_token
@@ -368,7 +370,7 @@ function swapTempDID(access_token, BindingDetails) {
     }
     let options = {
         method: 'POST',
-        url: 'https://'+APIHOST+'/vo/config/v1/customers/' + BindingDetails.customerId + '/dids/_portcomplete',
+        url: APIHOST+'/vo/config/v1/customers/' + BindingDetails.customerId + '/dids/_portcomplete',
         headers: {
             'Content-Type': 'application/json',
             Authorization: 'Bearer ' + access_token
@@ -408,7 +410,7 @@ function getTempVCCChannel(access_token, BindingDetails, callback){
     BindingDetails.tempNumber = BindingDetails.tempNumber.replace(/[+]/g, "");
     let options = {
         method: 'GET',
-        url: `https://${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${BindingDetails.siteId}/channels?filter=phoneNumber==${BindingDetails.tempNumber}`,
+        url: `${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${BindingDetails.siteId}/channels?filter=phoneNumber==${BindingDetails.tempNumber}`,
         headers:{
             Host: APIHOST,
             'Content-Type': 'application/json',
@@ -430,7 +432,7 @@ function DeleteTempChannel(access_token, BindingDetails){
         if (!err && channel){
             let options = {
                 method: 'DELETE',
-                url: `https://${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${channel.siteId}/channels/${channel.channelId}`,
+                url: `${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${channel.siteId}/channels/${channel.channelId}`,
                 headers:{
                     Host: APIHOST,
                     'Content-Type': 'application/json',
@@ -545,7 +547,7 @@ function checkSiteResult (access_token, siteResult, pbxlistLength, BindingDetail
 function getVCCsite (access_token, customerId, pbxId, pbxName, siteResult, pbxlistLenght, BindingDetails) {
     let options = {
         method: 'GET',
-        url: `https://${APIHOST}/vo/config/v1/customers/${customerId}/pbxes/${pbxId}/vccsites`,
+        url: `${APIHOST}/vo/config/v1/customers/${customerId}/pbxes/${pbxId}/vccsites`,
         headers:{
             Host: APIHOST,
             'Content-Type': 'application/json',
@@ -571,7 +573,7 @@ function getVCCsite (access_token, customerId, pbxId, pbxName, siteResult, pbxli
 function getCustomerDetails (access_token, BindingDetails) {
     let options = {
         method: 'GET',
-        url: `https://${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes?`,
+        url: `${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes?`,
         headers:{
             Host: APIHOST,
             'Content-Type': 'application/json',
@@ -624,7 +626,7 @@ function getVCCTenant(access_token, BindingDetails, callback){
 function getFaxDID(access_token, BindingDetails){
         let options = {
             method: 'GET',
-            url: `https://${APIHOST}/fax/v1/customers/${BindingDetails.customerId}/dids?filter=didId==${BindingDetails.tempUUID}`,
+            url: `${APIHOST}/fax/v1/customers/${BindingDetails.customerId}/dids?filter=didId==${BindingDetails.tempUUID}`,
             headers: {
                 Host: APIHOST,
                 Authorization: 'Bearer ' + access_token,
@@ -638,7 +640,7 @@ function getFaxDID(access_token, BindingDetails){
                 if (fax.status === 'AVAILABLE') {
                     let options = {
                         method: 'DELETE',
-                        url: `https://${APIHOST}/fax/v1/customers/${BindingDetails.customerId}/dids/${BindingDetails.tempUUID}`,
+                        url: `${APIHOST}/fax/v1/customers/${BindingDetails.customerId}/dids/${BindingDetails.tempUUID}`,
                         headers:{
                             Host: APIHOST,
                             'Content-Type': 'application/json',
@@ -670,7 +672,7 @@ function getFaxDID(access_token, BindingDetails){
 function getPortDetails(access_token, phoneNumber) {
     let options = {
         method: 'GET',
-        url: `https://${APIHOST}/dms/v2/dids`,
+        url: `${APIHOST}/dms/v2/dids`,
         qs: {
             pageKey: 0,
             limit: 1,
@@ -796,7 +798,7 @@ function getAffectedNumbers (access_token, CustomerOrder){
 
     let options = {
         method: 'GET',
-        url: 'https://' + APIHOST + '/dms/v2/management/bulkportins/' + CustomerOrder.bulkUuid + '/portins/' + CustomerOrder.orderId + '/jobs/portcomplete',
+        url: APIHOST + '/dms/v2/management/bulkportins/' + CustomerOrder.bulkUuid + '/portins/' + CustomerOrder.orderId + '/jobs/portcomplete',
         headers: {
             Host: APIHOST,
             Authorization: 'Bearer ' + access_token,
@@ -822,7 +824,7 @@ function GetPortinJobByOrderID (access_token, orderId) {
     
     let options = {
         method: 'GET',
-        url: `https://${APIHOST}/dms/v2/portins?filter=uuid==${orderId}`,
+        url: `${APIHOST}/dms/v2/portins?filter=uuid==${orderId}`,
         headers: {
             Host: APIHOST,
             Authorization: 'Bearer ' + access_token,
