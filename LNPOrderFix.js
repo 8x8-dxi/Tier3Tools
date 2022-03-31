@@ -448,6 +448,32 @@ function DeleteTempChannel(access_token, BindingDetails){
     })
 }
 
+function addPermNumberToVCC(access_token, callback){
+    let options = {
+        method: 'POST',
+        url : `https://vcc-provapi-prod.8x8.com/tenant/${BindingDetails.VCCTenantID}/phone/add/${BindingDetails.portedNumber}`,
+        headers:{
+            'Content-Type': 'application/xml',
+            Authorization: `Bearer ${access_token}`
+        },
+        body : `<request>
+                    <user id="prov_gtw" agent="Provisioning Gateway"></user>
+                    <phone clidblk="enabled" calling-name="8x8, Inc."></phone>
+                </request>`
+    }
+    request(options, (error, result) =>{
+        if (!error && result.failed) {
+            Logger.error("[*] Failed to add Perm to VCC. ", result.failed[0]);
+            if(callback) return callback(true, result.failed)
+        } else {
+            if (result.success) {
+                Logger.info(`[i] Successfully added Perm ${BindingDetails.portedNumber} from channel list`);
+                if(callback) return callback(error)
+            }
+        }
+    });
+}
+
 function DeleteVCCCMTempViaProvAPI(access_token, BindingDetails, callback){
     let options = {
         method: 'POST',
@@ -469,6 +495,7 @@ function DeleteVCCCMTempViaProvAPI(access_token, BindingDetails, callback){
             if (result.success) {
                 Logger.info(`[i] Successfully removed Temp ${BindingDetails.tempNumber} from channel list`);
                 Logger.info(`[i] Unassigning Temp ${BindingDetails.tempNumber} from VCC service`)
+                addPermNumberToVCC()
                 return callback(error)
             }
         }
@@ -701,7 +728,7 @@ function getPortDetails(access_token, phoneNumber) {
                 } else {
                     Logger.info (`[i] Number ${BindingDetails.portedNumber} has no temporary attached. No action to take.`);
                     VerifyNumberStatusAfterClaim(access_token, BindingDetails);
-                    }
+                }
         } else {
             Logger.info (`**[error] Number of ${phoneNumber} was not found in DMS. Please make sure the number is correct and try again`);
             LookUpNumber(access_token);
