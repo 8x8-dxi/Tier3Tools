@@ -10,10 +10,10 @@ const { lookup } = require('dns');
 const e = require('express');
 
 // Credentials and Environment
-const AuthToken = CONF.authKey;
-const SSOHOST = CONF.SSOHOST
-const SSOAUTHHOST = CONF.SSOAUTHHOST;
-const APIHOST = CONF.APIHOST;
+const AuthToken = 'R0FTX3RlYW06ZWJmMzkwMWI4ODRk';
+const SSOHOST = 'https://sso.8x8.com/oauth2/v1/token';
+const SSOAUTHHOST = 'sso.8x8.com';
+const APIHOST = 'http://platform.8x8.com';
 
 /*
 //=============================================
@@ -110,7 +110,6 @@ function deleteDidBinding(access_token, BindingDetails) {
         method: 'DELETE',
         url: APIHOST+'/vo/config/v1/customers/' + BindingDetails.customerId + '/pbxes/' + BindingDetails.pbxId + '/didbindings/' + BindingDetails.didBindingId,
         headers:{
-            Host: APIHOST,
             'Content-Type': 'application/json',
             Authorization: 'Bearer ' + access_token
         }
@@ -136,7 +135,6 @@ function getDIDBinding(access_token, customerId, permanentDidId, callback) {
         url: APIHOST+'/vo/config/v1/customers/' + customerId + '/didbindings',
         qs: {filter: `permanentDidId==${permanentDidId}`},
         headers: {
-            Host: APIHOST,
             'Content-Type': 'application/json',
             Authorization: 'Bearer ' + access_token
         }
@@ -194,7 +192,6 @@ function createChannel (access_token, BindingDetails) {
         method: 'POST',
         url: `${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${BindingDetails.siteId}/channels`,
         headers:{
-            Host: APIHOST,
             'Content-Type': 'application/json',
             Authorization: `Bearer ${access_token}`
         },
@@ -297,7 +294,6 @@ function VerifyNumberStatusAfterClaim(access_token, BindingDetails) {
         },
         headers:
         {
-            Host: APIHOST,
             'Content-Type': 'application/x-www-form-urlencoded',
             Authorization: 'Bearer ' + access_token
         }
@@ -412,7 +408,6 @@ function getTempVCCChannel(access_token, BindingDetails, callback){
         method: 'GET',
         url: `${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${BindingDetails.siteId}/channels?filter=phoneNumber==${BindingDetails.tempNumber}`,
         headers:{
-            Host: APIHOST,
             'Content-Type': 'application/json',
             Authorization: `Bearer ${access_token}`
         }
@@ -434,7 +429,6 @@ function DeleteTempChannel(access_token, BindingDetails){
                 method: 'DELETE',
                 url: `${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${BindingDetails.pbxId}/vccsites/${channel.siteId}/channels/${channel.channelId}`,
                 headers:{
-                    Host: APIHOST,
                     'Content-Type': 'application/json',
                     Authorization: 'Bearer ' + access_token
                 }
@@ -549,7 +543,6 @@ function getVCCsite (access_token, customerId, pbxId, pbxName, siteResult, pbxli
         method: 'GET',
         url: `${APIHOST}/vo/config/v1/customers/${customerId}/pbxes/${pbxId}/vccsites`,
         headers:{
-            Host: APIHOST,
             'Content-Type': 'application/json',
             Authorization: `Bearer ${access_token}`
         }
@@ -575,7 +568,6 @@ function getCustomerDetails (access_token, BindingDetails) {
         method: 'GET',
         url: `${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes?`,
         headers:{
-            Host: APIHOST,
             'Content-Type': 'application/json',
             Authorization: `Bearer ${access_token}`
         }
@@ -608,7 +600,6 @@ function getVCCTenant(access_token, BindingDetails, callback){
         method: 'GET',
         url: `https://cloud8gatekeeper.us-west-2.prod.cloud.8x8.com/vcc-globalprovisioning/v1/customers/${BindingDetails.customerId}/tenants`,
         headers: {
-            Host: APIHOST,
             Authorization: 'Bearer ' + access_token,
             'Content-Type': 'application/json'
         }
@@ -628,7 +619,6 @@ function getFaxDID(access_token, BindingDetails){
             method: 'GET',
             url: `${APIHOST}/fax/v1/customers/${BindingDetails.customerId}/dids?filter=didId==${BindingDetails.tempUUID}`,
             headers: {
-                Host: APIHOST,
                 Authorization: 'Bearer ' + access_token,
                 'Content-Type': 'application/json'
             }
@@ -642,7 +632,6 @@ function getFaxDID(access_token, BindingDetails){
                         method: 'DELETE',
                         url: `${APIHOST}/fax/v1/customers/${BindingDetails.customerId}/dids/${BindingDetails.tempUUID}`,
                         headers:{
-                            Host: APIHOST,
                             'Content-Type': 'application/json',
                             Authorization: 'Bearer ' + access_token
                         }
@@ -680,7 +669,6 @@ function getPortDetails(access_token, phoneNumber) {
         },
         headers:
                 {
-                    Host: APIHOST,
                     'Content-Type': 'application/x-www-form-urlencoded',
                     Authorization: 'Bearer ' + access_token
                 }
@@ -763,25 +751,30 @@ function getAffectedNumbers (access_token, CustomerOrder){
         if (!error && result.status !== 'FAILED'){
             //check if there there are pending numbers
             let pendingList = result.detailedStatus.pending;
-            Logger.info(`The Job status is "${result.status}" and there [${result.detailedStatus.failed}] numbers.`);
-            term.yellow(`There ${pendingList.length} pending numbers. DO YOU WANT TO SWAP THE PENIDING LIST?\n`);
-
-            let options = {
-                message: 'Please confirm YES of NO to continue',
-                name: 'Confirm',
-            }
-            getUserInput( options, (err, confirmation) =>{
-                if (confirmation.toLowerCase() === 'yes') {
-                    Logger.info (`You have selected to swap the Pending list!! I hope you know what your doing!`);
-                    LoopList(access_token, pendingList);
-                }else if(confirmation.toLowerCase() === 'no'){
-                    Logger.info (`You choosed not to proceed! Wise choice ;)`);
-                    return
-                }else{
-                    Logger.info (`Invalid choice!`);
-                    return
+            if (pendingList){
+                Logger.info(`The Job status is "${result.status}" and there [${result.detailedStatus.failed}] numbers.`);
+                term.yellow(`There ${pendingList.length} pending numbers. DO YOU WANT TO SWAP THE PENIDING LIST?\n`);
+    
+                let options = {
+                    message: 'Please confirm YES of NO to continue',
+                    name: 'Confirm',
                 }
-            });
+                getUserInput( options, (err, confirmation) =>{
+                    if (confirmation.toLowerCase() === 'yes') {
+                        Logger.info (`You have selected to swap the Pending list!! I hope you know what your doing!`);
+                        LoopList(access_token, pendingList);
+                    }else if(confirmation.toLowerCase() === 'no'){
+                        Logger.info (`You choosed not to proceed! Wise choice ;)`);
+                        return
+                    }else{
+                        Logger.info (`Invalid choice!`);
+                        return
+                    }
+                });
+            }else{
+                Logger.warn(`There is no issue with the order ID [${CustomerOrder.orderId}]. The issues may have been fixed`);
+                return
+            }
 
         }else {
             if (!error && result.status  === 'FAILED'){
@@ -800,7 +793,6 @@ function getAffectedNumbers (access_token, CustomerOrder){
         method: 'GET',
         url: APIHOST + '/dms/v2/management/bulkportins/' + CustomerOrder.bulkUuid + '/portins/' + CustomerOrder.orderId + '/jobs/portcomplete',
         headers: {
-            Host: APIHOST,
             Authorization: 'Bearer ' + access_token,
             'Content-Type': 'application/x-www-form-urlencoded'
         }
@@ -826,7 +818,6 @@ function GetPortinJobByOrderID (access_token, orderId) {
         method: 'GET',
         url: `${APIHOST}/dms/v2/portins?filter=uuid==${orderId}`,
         headers: {
-            Host: APIHOST,
             Authorization: 'Bearer ' + access_token,
             'Content-Type': 'application/json'
         }
