@@ -10,9 +10,9 @@ const { lookup } = require('dns');
 const e = require('express');
 
 // Credentials and Environment
-const AuthToken = 'R0FTX3RlYW06ZWJmMzkwMWI4ODRk';
-const SSOHOST = 'https://sso.8x8.com/oauth2/v1/token';
-const SSOAUTHHOST = 'sso.8x8.com';
+const AuthToken = CONF.authKey;
+const SSOHOST = CONF.SSOHOST;
+const SSOAUTHHOST = CONF.SSOAUTHHOST;
 const APIHOST = 'http://platform.8x8.com';
 
 /*
