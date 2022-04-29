@@ -626,7 +626,7 @@ function getFaxDID(access_token, BindingDetails){
         GETDATA(options, (error, response)=>{
             if (!error && response.pageResultSize > 0){
                 var fax = response.content.pop();
-                consLoggerole.info('FAX: ', fax)
+                Logger.info('FAX: ', fax)
                 if (fax.status === 'AVAILABLE') {
                     let options = {
                         method: 'DELETE',
