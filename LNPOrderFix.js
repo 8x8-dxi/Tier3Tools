@@ -13,7 +13,7 @@ const e = require('express');
 const AuthToken = CONF.authKey;
 const SSOHOST = CONF.SSOHOST;
 const SSOAUTHHOST = CONF.SSOAUTHHOST;
-const APIHOST = 'http://platform.8x8.com';
+const APIHOST = 'https://platform.8x8.com';
 
 /*
 //=============================================
@@ -57,7 +57,10 @@ function GETDATA(options, callback) {
             throw new Error(error);
         }
         //console.info(body)
-        return callback(error, JSON.parse(body));
+        if(body){
+            return callback(error, JSON.parse(body));
+        }
+        return callback(error, body);
     });
 }
 
@@ -366,7 +369,7 @@ function swapTempDID(access_token, BindingDetails) {
     }
     let options = {
         method: 'POST',
-        url: APIHOST+'/vo/config/v1/customers/' + BindingDetails.customerId + '/dids/_portcomplete',
+        url: `https://platform.8x8.com/vo/config/v1/customers/${BindingDetails.customerId}/dids/_portcomplete`,
         headers: {
             'Content-Type': 'application/json',
             Authorization: 'Bearer ' + access_token
@@ -381,7 +384,8 @@ function swapTempDID(access_token, BindingDetails) {
     request(options, function (error, response, body) {
         if (error)
             throw new Error(error);
-        if (body.failed) {
+
+        if (body && body.failed) {
             var result = body.failed[0];
             if (result.code === 'INVALID_DID_BINDING')
             {
@@ -391,13 +395,15 @@ function swapTempDID(access_token, BindingDetails) {
                 //console.info("swapTempDID failure response", body)
                 unassignDMS(access_token, BindingDetails)
             }
-        } else if (body.success) {
+        } else if (body && body.success) {
             var result = body.success[0];
             if (result.message === 'Success') {
                 Logger.info(`[i] Number SWAP successfull. (permanentDid put into service)`);
                 //Call to claim the Temp
                 ClaimTemp(access_token, BindingDetails);
             }
+        }else{
+            Logger.warn(`${response.statusCode} : Swap temp return empty body ${JSON.stringify(body)} Request ${JSON.stringify(options)}`)
         }
     });
 }
