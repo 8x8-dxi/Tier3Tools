@@ -608,14 +608,17 @@ function getVCCTenant(access_token, BindingDetails, callback){
         headers: {
             Authorization: 'Bearer ' + access_token,
             'Content-Type': 'application/json'
-        }
+        },
+        rejectUnauthorized: false,
+        requestCert: false,//add when working with https sites
+        agent: false,//add when working with https sites
     }
     let tennant = null
     GETDATA(options, (error, response)=>{
-        if (!error && response.pageResultSize > 0){
+        if (!error && response.length > 0){
             tennant = response.pop();
         }
-        return callback(err, tennant)
+        return callback(error, tennant)
     })
 }
 
