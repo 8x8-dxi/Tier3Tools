@@ -359,7 +359,6 @@ class LNPJobs {
         LNPCollection.getFailedJobs({}, (err, res)=>{
             if (!err && res && res.length > 0){
                 for (let x =0, l=res.length; x <l; ++x){
-                    if (x == 0) lastCreateDate = res[x].last_update
                     if(!History[res[x].order_uuid]){
                         History[res[x].order_uuid] ={
                             port_uuid:res[x].port_uuid,
