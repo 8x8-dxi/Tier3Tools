@@ -355,7 +355,7 @@ class LNPJobs {
 
     getJobHistory(cb){
         let History ={};
-        let lastCreateDate = new Date(new Date().setDate(new Date().getDate() - 1));
+        let lastCreateDate = new Date(new Date().setDate(new Date().getDate() - 60));
         LNPCollection.getFailedJobs({}, (err, res)=>{
             if (!err && res && res.length > 0){
                 for (let x =0, l=res.length; x <l; ++x){
