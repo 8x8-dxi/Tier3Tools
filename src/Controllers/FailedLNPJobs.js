@@ -336,7 +336,7 @@ class LNPJobs {
                         from: 'christian.augustine@8x8.com',
                         to: "gas@8x8.com,LNP-escalations@8x8.com,christian.augustine@8x8.com",
                         //to: "caugustine@8x8.com, steve.ohara@8x8.com,liviu.munteanu@8x8.com,hector.mayorga@8x8.com,andrei.larionescu@8x8.com,neil.lavelle@8x8.com",
-                        subject: `Sev 1 - LNP Issues!!! Action required: Customer (${payLoad.customer_name})`,
+                        subject: `Sev 1 - Action required: Customer (${payLoad.customer_name})`,
                         text: "Some Details.",
                         html: this.makeTable(payLoad)
                     });
