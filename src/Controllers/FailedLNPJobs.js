@@ -316,7 +316,7 @@ class LNPJobs {
             
             if (!err && (payLoad.job_status === 'FAILED' || payLoad['failed_numbers']))
             {   
-                if (payLoad['failed_numbers'] && payLoad['failed_numbers'].length > 0)
+                if (payLoad.job_status != 'RUNNING' && payLoad['failed_numbers'] && payLoad['failed_numbers'].length > 0)
                 {
                     for (let x in payLoad['failed_numbers']) {
                         let number = payLoad['failed_numbers'][x];
