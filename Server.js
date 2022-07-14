@@ -73,7 +73,7 @@ agenda.define('Check LPN Failures', (job, done) =>{
 agenda.on('ready', function () {
    logger.info('---starting Agenda Jobs---');
    agenda.start();
-   agenda.every('5 minutes', 'Check LPN Failures');
+   agenda.every('2 hours', 'Check LPN Failures');
 });
 
 
