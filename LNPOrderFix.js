@@ -759,7 +759,8 @@ function getAffectedNumbers (access_token, CustomerOrder){
         
         if (!error && result.status !== 'FAILED'){
             //check if there there are pending numbers
-            let pendingList = result.detailedStatus.pending;
+            let pendingList = result.detailedStatus.failed;
+            console.info(result)
             if (pendingList){
                 Logger.info(`The Job status is "${result.status}" and there [${result.detailedStatus.failed}] numbers.`);
                 term.yellow(`There ${pendingList.length} pending numbers. DO YOU WANT TO SWAP THE PENIDING LIST?\n`);
