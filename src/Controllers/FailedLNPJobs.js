@@ -3,6 +3,8 @@
  * @DATE        28/01/2020
  * @description This this is a wrapper class which sents a simple get requst to SMP to fetch
  * LNP Port Jobs. It sents email to some alias if there are failed jobs
+ * Collaborator Iulian Danilet
+ *              Georgian Ludescu
  */
 
 const CONFIG = require('../Config/config');
