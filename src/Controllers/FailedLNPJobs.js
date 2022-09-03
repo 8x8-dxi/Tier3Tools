@@ -293,7 +293,7 @@ class LNPJobs {
                         web_link:payLoad.order_url,
                         create_date:this.currentDate(true, payLoad.create_date),
                         last_update:this.currentDate(true, payLoad.last_update),
-                        error:JSON.stringify(payLoad.errors_list),
+                        error:JSON.stringify(payLoad.job_errors),
                         restart_counter:0,
                         done:false,
                         can_restart:true
