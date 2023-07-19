@@ -285,8 +285,43 @@ function toggleDms (access_token, BindingDetails) {
     });      
 }
 
+swapVCCNumber = (access_token, BindingDetails, callback)=>{
+    let options = {
+        method: 'PATCH',
+        url : `https://cloud8.8x8.com/vcc-phone-channels-manager/v1/channels?phone_number=${BindingDetails.tempNumber}`,
+        headers:{
+            'Content-Type': 'application/xml',
+            Authorization: `Bearer ${access_token}`,
+            'X-Tenant-Id': `${BindingDetails.VCCTenantID}`,
+            'X-Customer-Id': `${BindingDetails.customerId}`,
+            'X-Pbx-Id': `${BindingDetails.pbxId}`,
+            'X-Site-Id': `${BindingDetails.siteId}`
+        },
+        body : {
+            'phone_number': BindingDetails.portedNumber,
+            'site_id': BindingDetails.siteId,
+            'customer_id': BindingDetails.customerId,
+            'pbx_id': BindingDetails.pbxId,
+            'did_uuid': BindingDetails.permUUID
+        },
+        json:true
+    }
+    request(options, (error, result) =>{
+        if (!error && result.failed) {
+            Logger.error("[*] Failed to add Perm to VCC. ", result.failed[0]);
+            if(callback) return callback(true, result.failed)
+        } else {
+            if (result.success) {
+                Logger.info(`[i] Successfully added Perm ${BindingDetails.portedNumber} from channel list`);
+                if(callback) return callback(error)
+            }
+        }
+    });
+}
+
 // check if number stuck in PORTED status
 function VerifyNumberStatusAfterClaim(access_token, BindingDetails) {
+    //console.info(BindingDetails)
     let options = {
         method: 'GET',
         url: `${APIHOST}/dms/v2/dids`,
@@ -311,8 +346,10 @@ function VerifyNumberStatusAfterClaim(access_token, BindingDetails) {
        }
        
        if(BindingDetails.tempOwner === 'VCC' || BindingDetails.tempOwner === 'vcc'){
-            DeleteVCCCMTempViaProvAPI(access_token, BindingDetails, (err, res) =>{
-            })
+            // The new way
+            swapVCCNumber(access_token, BindingDetails)
+            // The old way
+            //DeleteVCCCMTempViaProvAPI(access_token, BindingDetails, (err, res) =>{})
         }
     })
 };
@@ -450,18 +487,23 @@ function DeleteTempChannel(access_token, BindingDetails){
     })
 }
 
-function addPermNumberToVCC(access_token, callback){
+function addPermNumberToVCC(access_token, BindingDetails, callback){
     let options = {
         method: 'POST',
-        url : `https://vcc-provapi-prod.8x8.com/tenant/${BindingDetails.VCCTenantID}/phone/add/${BindingDetails.portedNumber}`,
+        url : `https://cloud8.8x8.com/vcc-phone-channels-manager/v1/channels`,
         headers:{
             'Content-Type': 'application/xml',
-            Authorization: `Bearer ${access_token}`
+            Authorization: `Bearer ${access_token}`,
+            'X-Tenant-Id': `${BindingDetails.VCCTenantID}`,
         },
-        body : `<request>
-                    <user id="prov_gtw" agent="Provisioning Gateway"></user>
-                    <phone clidblk="enabled" calling-name="8x8, Inc."></phone>
-                </request>`
+        body : {
+            'phone_number': BindingDetails.portedNumber,
+            'site_id': BindingDetails.siteId,
+            'customer_id': BindingDetails.customerId,
+            'pbx_id': BindingDetails.pbxId,
+            'did_uuid': BindingDetails.permUUID
+        },
+        json:true
     }
     request(options, (error, result) =>{
         if (!error && result.failed) {
@@ -478,16 +520,16 @@ function addPermNumberToVCC(access_token, callback){
 
 function DeleteVCCCMTempViaProvAPI(access_token, BindingDetails, callback){
     let options = {
-        method: 'POST',
-        url : `https://vcc-provapi-prod.8x8.com/tenant/${BindingDetails.VCCTenantID}/phone/delete/${BindingDetails.tempNumber}`,
+        method: 'DELETE',
+        url : `https://cloud8.8x8.com/vcc-phone-channels-manager/v1/channels?phone_number=${BindingDetails.tempNumber}`,
         headers:{
             'Content-Type': 'application/xml',
-            Authorization: `Bearer ${access_token}`
-        },
-        body : `<request>
-                    <user id="pma" agent="Account Manager"></user>
-                    <phone clidblk="enabled" calling-name="8x8, Inc." site="${BindingDetails.siteId}" cluster="${BindingDetails.clusterId}"></phone>
-                </request>`
+            Authorization: `Bearer ${access_token}`,
+            'X-Tenant-Id': `${BindingDetails.VCCTenantID}`,
+            'X-Customer-Id': `${BindingDetails.customerId}`,
+            'X-Pbx-Id': `${BindingDetails.pbxId}`,
+            'X-Site-Id': `${BindingDetails.siteId}`,
+        }
     }
     request(options, function (error, result) {
         if (!error && result.failed) {
@@ -497,8 +539,7 @@ function DeleteVCCCMTempViaProvAPI(access_token, BindingDetails, callback){
             if (result.success) {
                 Logger.info(`[i] Successfully removed Temp ${BindingDetails.tempNumber} from channel list`);
                 Logger.info(`[i] Unassigning Temp ${BindingDetails.tempNumber} from VCC service`)
-                addPermNumberToVCC()
-                return callback(error)
+                addPermNumberToVCC(access_token, BindingDetails, callback)
             }
         }
     });
@@ -545,27 +586,23 @@ function checkSiteResult (access_token, siteResult, pbxlistLength, BindingDetail
 
 // GET VCC site
 function getVCCsite (access_token, customerId, pbxId, pbxName, siteResult, pbxlistLenght, BindingDetails) {
-    let options = {
-        method: 'GET',
-        url: `${APIHOST}/vo/config/v1/customers/${customerId}/pbxes/${pbxId}/vccsites`,
-        headers:{
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${access_token}`
+
+    getVCCTenant(access_token, BindingDetails, (err, tenant)=>{
+        if(!tenant){
+            Logger.error(`Failed to get tennat for customer ID ${BindingDetails.customerId} Error: ${JSON.stringify(err)}`)
+            return 
         }
-    };
-    request (options, function (error, result, body) {
-        var data = JSON.parse(body);
-        var content = data.content[0];
-        if (!error && data.pageResultSize === 0) {
-            siteResult.set(pbxName, false);
+
+        
+        if (tenant && tenant.siteId) {
+            BindingDetails.VCCTenantID = tenant.tenantId
+            BindingDetails.siteId = tenant.siteId
+            BindingDetails.clusterId = tenant.clusterId
+            Logger.info (`[i] Found site: ${BindingDetails.siteId} for pbx: "${[tenant.pbxName]}"`)
+            Logger.info (`[i] Looking for Temp number in channel list`)
+            checkChannels (access_token, BindingDetails) 
         }
-        if (!error && data.pageResultSize === 1) {
-            siteResult.set(pbxName, true)
-            var siteId = content.siteId;
-            BindingDetails.siteId = siteId;
-        } 
-        checkSiteResult (access_token, siteResult, pbxlistLenght, BindingDetails)
-    });
+    })
 };
 
 // GET Pbx if VCC
@@ -589,6 +626,7 @@ function getCustomerDetails (access_token, BindingDetails) {
                 Logger.warn(`[i] Looking up VCC Site`);
                 let pbxlist = data.content;
                 var siteResult = new Map ();
+                // TODO check why we need to iterate through the entire list of PBX
                 pbxlist.forEach ((item) => {
                         BindingDetails.pbxId = item.pbxId;
                         BindingDetails.pbxName = item.name;
@@ -696,7 +734,8 @@ function getPortDetails(access_token, phoneNumber) {
                 permStatus : content.status,
                 customerId: content.customerId,
             }
-            if (content.temporaryDid!=null) {
+            
+            if (content.temporaryDid != null) {
                     BindingDetails.tempUUID = content.temporaryDid.uuid
                     BindingDetails.tempNumber = content.temporaryDid.phoneNumber
                     BindingDetails.tempStatus = content.temporaryDid.status
@@ -760,7 +799,10 @@ function getAffectedNumbers (access_token, CustomerOrder){
         if (!error && result.status !== 'FAILED'){
             //check if there there are pending numbers
             let pendingList = result.detailedStatus.failed;
-            console.info(result)
+            // if (pendingList.length === 0 && result.detailedStatus.pending.length > 0){
+            //     pendingList = result.detailedStatus.pending
+            // }
+            
             if (pendingList){
                 Logger.info(`The Job status is "${result.status}" and there [${result.detailedStatus.failed}] numbers.`);
                 term.yellow(`There ${pendingList.length} pending numbers. DO YOU WANT TO SWAP THE PENIDING LIST?\n`);

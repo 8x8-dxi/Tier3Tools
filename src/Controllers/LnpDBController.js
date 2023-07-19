@@ -20,5 +20,8 @@ Controller.SaveFailedOrder = (order,cb) => {
     let newOrder= new LNPCollection(order);
     return newOrder.save(cb)
 }
+Controller.UpdateFailedOrder = (order, cb) => {
+    return LNPCollection.updateOne(order, cb)
+}
 
 module.exports = exports = Controller;
