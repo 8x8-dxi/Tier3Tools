@@ -304,8 +304,6 @@ class LNPJobs {
                 }else{
                     logger.info(`No failed numbers for order Uuid ${order.uuid}`)
                 }
-
-
                 return callback(false, key, payLoad, job);
             }
             return callback(true, key, payLoad, job);
@@ -373,6 +371,9 @@ class LNPJobs {
             return cb(this.currentDate(false,lastCreateDate), History)
         })
     }
+    updateJobStatus(port_uuid, job_status, cb){
+        LNPCollection.UpdateFailedOrder({port_uuid:port_uuid}, {job_status:job_status}, cb)
+    }
     
     GenerateToken (callback) {
         this.GetToken((error, response, body) => {
@@ -390,7 +391,6 @@ class LNPJobs {
         let customerid = portin.customerId;
         let phonenumber = portin.phoneNumbers;
         this.GetCustomer(token, customerid, (err, customerResponse) => {
-
             if (!err && customerResponse && customerResponse.content) {
                 var customer = customerResponse.content[0];
 
@@ -430,7 +430,6 @@ class LNPJobs {
                     if (!History[orderID]) {
                         this.GetPortinsByUUID(token, portin);
                     }
-                    // Skip
                 }
 
                 if (body.nextPageKey){
@@ -453,6 +452,8 @@ class LNPJobs {
     }
 
     CheckFailedPortin(){
+        let lastStatusChangeTime = new Date(new Date().setHours(new Date().getHours() - 1)).toISOString().replace('Z', '');//'2023-06-01T23:18:36.26'//
+        let lastStatusUpdateDateTime = new Date(new Date().setHours(new Date().getHours() - 5)).toISOString().replace('Z', '');//'2023-06-01T23:18:36.26'//
         this.getJobHistory((lastCreateDate, history)=>{
             logger.info(`Checking for failed LNP Port: Last Created Date ${lastCreateDate}`)
             this.GetToken((error, response, body) => {
@@ -471,15 +472,15 @@ class LNPJobs {
                         'Content-Type': 'application/x-www-form-urlencoded'
                     }
                 };
+                
                 const query = {
                     pageKey: '0',
                     limit: '200',
-                    filter: `status==COMPLETED;lastUpdatedDateTime=ge=${lastCreateDate}T00:00:00`
+                    filter: `(status==COMPLETED,(status==ACTIVATING;lastStatusUpdateDateTime=lt=${lastStatusChangeTime}));lastStatusUpdateDateTime=ge=${lastStatusUpdateDateTime}`
                 };
     
                 options.qs = query;
-    
-                this.GET(options, this.doNext(token,lastCreateDate, history));
+                this.GET(options, this.doNext(token,lastStatusUpdateDateTime, history));
             });
         })
     }
