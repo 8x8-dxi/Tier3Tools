@@ -8,6 +8,7 @@ const { isNull, isNullOrUndefined } = require('util');
 const { peachpuff } = require('color-name');
 const { lookup } = require('dns');
 const e = require('express');
+const { channel } = require('diagnostics_channel');
 
 // Credentials and Environment
 const AuthToken = CONF.authKey;
@@ -51,12 +52,10 @@ function getToken(callback) {
 
 // GET callback with JSON parse 
 function GETDATA(options, callback) {
-    //console.info(options);
     request(options, function (error, response, body) {
         if (error){
             throw new Error(error);
         }
-        //console.info(body)
         if(body){
             return callback(error, JSON.parse(body));
         }
@@ -204,7 +203,7 @@ function createChannel (access_token, BindingDetails) {
     };
     request(options, function (error, result, body) {
         if (body.failed) {
-            Logger.error(`[*] Channel creation FAILED for ${BindingDetails.portedNumber} with error:\n ${body}`);
+            Logger.error(`[*] Channel creation FAILED for ${BindingDetails.portedNumber} with error:\n ${JSON.stringify(body)}`);
         } else if (body.success){
             Logger.info (`Channel ${body.success[0].resourceId} successfully created for ${BindingDetails.portedNumber}`)
         }
@@ -225,12 +224,35 @@ function assignToVCC (access_token, BindingDetails) {
         json: true
     }
     request(options, function (error, result, body) {
-            if (!error && body.orders[0].status === 'COMPLETED') {
-                Logger.info(`[i] Number ${BindingDetails.portedNumber} successfully assigned to VCC.`);
-                createChannel (access_token, BindingDetails);
-            } else {
-                Logger.error(`[*] Owner unassignment FAILED`);
-            }
+        if (!error && body.orders[0].status === 'COMPLETED') {
+            Logger.info(`[i] Number ${BindingDetails.portedNumber} successfully assigned to VCC.`);
+            createChannel (access_token, BindingDetails);
+        } else {
+            Logger.error(`[*] Owner unassignment FAILED`);
+        }
+    })
+};
+
+// function to assign PERM to VCC
+function assignToVOVCC (access_token, BindingDetails) {
+    let options = {
+        method: 'POST',
+        url: `${APIHOST}/dms/v2/customers/${BindingDetails.customerId}/bulkassignments`,
+        headers: {
+          'Content-Type': 'application/json',
+          clientid: 'vo_vcc',
+          Authorization: 'Bearer '+ access_token
+        },
+        body: [{"didUuid": BindingDetails.permUUID}],
+        json: true
+    }
+    request(options, function (error, result, body) {
+        if (!error && body.orders[0].status === 'COMPLETED') {
+            Logger.info(`[i] Number ${BindingDetails.portedNumber} successfully assigned to VO VCC.`);
+            createChannel (access_token, BindingDetails);
+        } else {
+            Logger.error(`[*] Owner unassignment VO VCC FAILED`);
+        }
     })
 };
 
@@ -247,7 +269,7 @@ function unassignDMS (access_token, BindingDetails) {
         body: [{"didUuid": BindingDetails.tempUUID}],
         json: true
     }
-        request(options, function (error, result, body) {
+        request(options, (error, result, body) => {
             if (!error && body.orders[0].status === 'COMPLETED') {
                 Logger.info(`[i] Number successfully unassigned. Claiming Temp`);
                 ClaimTemp (access_token, BindingDetails);
@@ -278,7 +300,9 @@ function toggleDms (access_token, BindingDetails) {
         //
         options.url = `${APIHOST}/dms/v2/customers/${BindingDetails.customerId}/bulkunassignments`;
         request(options, function (error, response, body) {
-            if (BindingDetails.vccChannelflag === true) {
+            if (!error && BindingDetails.tempOwner === 'vo_vcc' ){
+                assignToVOVCC (access_token, BindingDetails);
+            }else if (BindingDetails.vccChannelflag === true) {
                 assignToVCC (access_token, BindingDetails)
             }
         })
@@ -319,9 +343,64 @@ swapVCCNumber = (access_token, BindingDetails, callback)=>{
     });
 }
 
+swapVOVCCNumber = (access_token, BindingDetails, callback)=>{
+    let options = {
+        method: 'PATCH',
+        url : `https://cloud8.8x8.com/vcc-contact-manager/v1/agents/${BindingDetails.channel.userId}`,
+        headers:{
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${access_token}`,
+            'X-Tenant-Id': `${BindingDetails.VCCTenantID}`,
+            'X-Customer-Id': `${BindingDetails.customerId}`,
+            'X-Pbx-Id': `${BindingDetails.pbxId}`,
+            'X-Site-Id': `${BindingDetails.siteId}`,
+            'X-Branch-Id':`${BindingDetails.channel.branchId}`
+        },
+        body : {
+            phone_channel: {
+                phone_number : BindingDetails.portedNumber
+            },
+        },
+        json:true
+    }
+    request(options, (error, result) =>{
+        //console.info(result.body)
+
+        const body = result
+        if (!error && result.body) {
+            Logger.error(`[i] Temp ${BindingDetails.tempNumber} was not claimed. Error Message : ${JSON.stringify(body)}`);
+            ClaimTempBlank(access_token, BindingDetails)            
+            if(callback) return callback(true, body)
+        } else {
+            Logger.info(`Done! ${JSON.stringify(result)}`);
+        }
+    });
+}
+
+getExtensionByNumber = (access_token, BindingDetails, item, callback)=>{
+    const phoneNumber = BindingDetails.tempNumber.replace('+', '')
+    let options = {
+        method: 'GET',
+        url : `https://platform.8x8.com/vo/config/v1/customers/${BindingDetails.customerId}/pbxes/${item.pbxId}/extensions?filter=primaryDID==${phoneNumber}`,
+        headers:{
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${access_token}`,
+        },
+        json:true
+    }
+    let  channel  = null
+    request(options, (err, result) =>{
+        const body = result.body;
+
+        if (!err && body.pageResultSize > 0){
+            channel = body.content.pop();
+         }
+        return callback(err, channel)
+    });
+}
+
 // check if number stuck in PORTED status
 function VerifyNumberStatusAfterClaim(access_token, BindingDetails) {
-    //console.info(BindingDetails)
     let options = {
         method: 'GET',
         url: `${APIHOST}/dms/v2/dids`,
@@ -337,8 +416,11 @@ function VerifyNumberStatusAfterClaim(access_token, BindingDetails) {
         }
     }
     GETDATA(options, (err, result)=>{
-       if (!err && BindingDetails.vccChannelflag === true){
+       if (!err && BindingDetails.vccChannelflag === true && BindingDetails.tempOwner !== 'vo_vcc'){
             assignToVCC (access_token, BindingDetails);
+       } else if (!err && BindingDetails.tempOwner === 'vo_vcc' ){
+            Logger.info(`[i] Temp ${BindingDetails.tempNumber} going to assignToVOVCC`);
+            assignToVOVCC (access_token, BindingDetails);
        } else if (!err && result.content[0].status === 'PORTED'){
             toggleDms (access_token, BindingDetails);
        } else {
@@ -346,13 +428,57 @@ function VerifyNumberStatusAfterClaim(access_token, BindingDetails) {
        }
        
        if(BindingDetails.tempOwner === 'VCC' || BindingDetails.tempOwner === 'vcc'){
-            // The new way
             swapVCCNumber(access_token, BindingDetails)
-            // The old way
-            //DeleteVCCCMTempViaProvAPI(access_token, BindingDetails, (err, res) =>{})
         }
+        if(BindingDetails.tempOwner === 'VO_VCC' || BindingDetails.tempOwner === 'vo_vcc'){
+            //console.info("---Swaping VO VCC---")
+            Logger.info(`[i] Temp ${BindingDetails.tempNumber} going to swapVOVCCNumber`);
+            swapVOVCCNumber(access_token, BindingDetails)
+         }
     })
 };
+
+function ClaimTempBlank(access_token, BindingDetails) {
+    if (!BindingDetails && !BindingDetails.customerId && !BindingDetails.tempUUID) {
+            Logger.error("[*] Missing DID Information (customerId;tempUUID)", BindingDetails);
+    }
+    let options = {
+        method: 'POST',
+        url: APIHOST+'/dms/v2/customers/' + BindingDetails.customerId + '/bulkquitclaims',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + access_token
+        },
+
+        body: [{
+                didUuid: BindingDetails.tempUUID
+            }
+        ],
+        json: true
+    };
+    request(options, function (error, response, body) {
+        if (error){
+            throw new Error(error);
+        }   
+        if (body.failed) {
+            var result = body.failed[0];
+            Logger.error("[*] Claim FAILED with error: ", result.failed);
+        } else if (body.success){
+            var result = body.success[0];
+            if (result.message === 'Success') {
+                Logger.info(`[i] Temp ${BindingDetails.tempNumber} was successfully claimed`);
+            }
+        } else if (body.status === 'CREATED') {
+            if (body.errors && body.errors.length > 0){
+                if (body.errors[0].message){
+                    Logger.error(`[i] Temp ${BindingDetails.tempNumber} was not claimed ${JSON.stringify(body.errors)}`);
+                }
+            }else{
+                Logger.info(`[i] Temp ${BindingDetails.tempNumber} was successfully claimed`);
+            }
+        }
+    });
+}
 
 // function to claim temp number back to DMS
 function ClaimTemp(access_token, BindingDetails) {
@@ -374,16 +500,13 @@ function ClaimTemp(access_token, BindingDetails) {
         json: true
     };
     request(options, function (error, response, body) {
-        
         if (error){
             throw new Error(error);
         }   
         if (body.failed) {
             var result = body.failed[0];
             Logger.error("[*] Claim FAILED with error: ", result.failed);
-        } else if (body.success)
-        {
-            //Logger.info("body", body)
+        } else if (body.success){
             var result = body.success[0];
             if (result.message === 'Success') {
                 Logger.info(`[i] Temp ${BindingDetails.tempNumber} was successfully claimed`);
@@ -429,7 +552,6 @@ function swapTempDID(access_token, BindingDetails) {
                 Logger.info("[*] INVALID_DID_BINDING. Attempting to recreate didBinding");
                 recreateDIDBinding(access_token, BindingDetails);
             } else {
-                //console.info("swapTempDID failure response", body)
                 unassignDMS(access_token, BindingDetails)
             }
         } else if (body && body.success) {
@@ -585,7 +707,7 @@ function checkSiteResult (access_token, siteResult, pbxlistLength, BindingDetail
 }
 
 // GET VCC site
-function getVCCsite (access_token, customerId, pbxId, pbxName, siteResult, pbxlistLenght, BindingDetails) {
+function getVCCsite (access_token, BindingDetails) {
 
     getVCCTenant(access_token, BindingDetails, (err, tenant)=>{
         if(!tenant){
@@ -593,7 +715,6 @@ function getVCCsite (access_token, customerId, pbxId, pbxName, siteResult, pbxli
             return 
         }
 
-        
         if (tenant && tenant.siteId) {
             BindingDetails.VCCTenantID = tenant.tenantId
             BindingDetails.siteId = tenant.siteId
@@ -607,6 +728,24 @@ function getVCCsite (access_token, customerId, pbxId, pbxName, siteResult, pbxli
 
 // GET Pbx if VCC
 function getCustomerDetails (access_token, BindingDetails) {
+
+    const doNext = (access_token, BindingDetails) =>{
+        return (item) =>{
+            getExtensionByNumber(access_token, BindingDetails, item, (err, channel) =>{
+
+                if (!err && channel){
+                    BindingDetails.pbxId = item.pbxId;
+                    BindingDetails.pbxName = item.name;
+                    BindingDetails.channel = channel
+                    getVCCsite (access_token, BindingDetails);
+                } else if(!err && !channel) {
+                    Logger.warn (`Number does not belong to PBX for ${BindingDetails.customerId} PBXID ${item.pbxId}`);
+                }else{
+                    Logger.warn(`Get PBX Extn failed`)
+                }
+            })
+        }
+     };
     let options = {
         method: 'GET',
         url: `${APIHOST}/vo/config/v1/customers/${BindingDetails.customerId}/pbxes?`,
@@ -627,11 +766,7 @@ function getCustomerDetails (access_token, BindingDetails) {
                 let pbxlist = data.content;
                 var siteResult = new Map ();
                 // TODO check why we need to iterate through the entire list of PBX
-                pbxlist.forEach ((item) => {
-                        BindingDetails.pbxId = item.pbxId;
-                        BindingDetails.pbxName = item.name;
-                        getVCCsite (access_token, BindingDetails.customerId, item.pbxId, BindingDetails.pbxName, siteResult, pbxlist.length, BindingDetails);
-                });
+                pbxlist.forEach (doNext(access_token, BindingDetails));
             }else{
                 Logger.info (`[**[error]] Could not find PBX for ${BindingDetails.customerId}`);
             }
@@ -757,8 +892,8 @@ function getPortDetails(access_token, phoneNumber) {
                             getFaxDID(access_token, BindingDetails)
                         }
                             // Handle VCC failures 
-                        if ( BindingDetails.tempOwner === 'VCC' || BindingDetails.tempOwner === 'vcc') {
-                            Logger.info(`[i] Temporary assigned to VCC. Getting VCC data`)
+                        if ( BindingDetails.tempOwner === 'VCC' || BindingDetails.tempOwner === 'vcc' || BindingDetails.tempOwner === 'vo_vcc') {
+                            Logger.info(`[i] Temporary assigned to ${BindingDetails.tempOwner}. Getting VCC data`)
                             BindingDetails.vccChannelflag = true;
                             getCustomerDetails(access_token, BindingDetails);
                         }
@@ -927,7 +1062,6 @@ function LookUpOrder(access_token){
     });
 };
 
-// ===== RUN MENU =====
 getToken( (error, response, body) =>{
     if (!error)
     {
