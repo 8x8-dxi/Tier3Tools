@@ -368,7 +368,7 @@ swapVOVCCNumber = (access_token, BindingDetails, callback)=>{
 
         const body = result
         if (!error && result.body) {
-            Logger.error(`[i] Temp ${BindingDetails.tempNumber} was not claimed. Error Message : ${JSON.stringify(body)}`);
+            Logger.info(`[i] Temp ${BindingDetails.tempNumber} running clean up Quit`);
             ClaimTempBlank(access_token, BindingDetails)            
             if(callback) return callback(true, body)
         } else {
@@ -474,7 +474,7 @@ function ClaimTempBlank(access_token, BindingDetails) {
                     Logger.error(`[i] Temp ${BindingDetails.tempNumber} was not claimed ${JSON.stringify(body.errors)}`);
                 }
             }else{
-                Logger.info(`[i] Temp ${BindingDetails.tempNumber} was successfully claimed`);
+                Logger.info(`Completed for Temp: ${BindingDetails.tempNumber}. DONE`);
             }
         }
     });
